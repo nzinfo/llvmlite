@@ -6,7 +6,11 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Host.h"
+#if LLVM_VERSION_MAJOR < 11
 #include "llvm/Support/TargetRegistry.h"
+#else 
+#include "llvm/MC/TargetRegistry.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 
 #include <cstdio>
@@ -204,7 +208,13 @@ LLVMPY_CreateTargetMachine(LLVMTargetRef T, const char *Triple, const char *CPU,
         rm = Reloc::DynamicNoPIC;
 
     TargetOptions opt;
+#if LLVM_VERSION_MAJOR < 11    
     opt.PrintMachineCode = PrintMC;
+    /*
+    if (PrintAfterISel)
+        PM->add(createMachineFunctionPrinterPass(dbgs(), Banner));
+     */
+#endif     
     opt.MCOptions.ABIName = ABIName;
 
     bool jit = JIT;
