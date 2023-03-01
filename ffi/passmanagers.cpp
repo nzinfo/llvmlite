@@ -23,9 +23,9 @@
 # else
 #include "llvm/IR/RemarkStreamer.h"
 # endif 
-#endif
 #include "llvm/IR/LLVMRemarkStreamer.h"
-#include "llvm/Remarks/RemarkStreamer.h"
+#endif
+// #include "llvm/Remarks/RemarkStreamer.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 

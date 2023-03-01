@@ -266,6 +266,15 @@ class ValueRef(ffi.ObjectRef):
         return _ArgumentsIterator(it, parents)
 
     @property
+    def return_type(self):
+        """
+        Function's return type.
+        """
+        if not self.is_function:
+            raise ValueError('expected function value, got %s' % (self._kind,))
+        return TypeRef(ffi.lib.LLVMPY_FunctionReturnType(self))
+    
+    @property
     def instructions(self):
         """
         Return an iterator over this block's instructions.
@@ -460,6 +469,9 @@ ffi.lib.LLVMPY_IsDeclaration.restype = c_int
 
 ffi.lib.LLVMPY_FunctionAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
+
+ffi.lib.LLVMPY_FunctionReturnType.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_FunctionReturnType.restype = ffi.LLVMTypeRef
 
 ffi.lib.LLVMPY_CallInstAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_CallInstAttributesIter.restype = ffi.LLVMAttributeListIterator

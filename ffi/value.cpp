@@ -201,6 +201,14 @@ LLVMPY_FunctionArgumentsIter(LLVMValueRef F) {
     return wrap(new ArgumentsIterator(func->arg_begin(), func->arg_end()));
 }
 
+API_EXPORT(LLVMTypeRef)
+LLVMPY_FunctionReturnType(LLVMValueRef F) { 
+    using namespace llvm;
+    // Ref: https://lists.llvm.org/pipermail/llvm-dev/2008-May/014874.html
+    Function *func = unwrap<Function>(F);
+    return wrap(func->getReturnType());
+}
+
 API_EXPORT(LLVMInstructionsIteratorRef)
 LLVMPY_BlockInstructionsIter(LLVMValueRef B) {
     using namespace llvm;
