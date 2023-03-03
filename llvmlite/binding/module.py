@@ -1,5 +1,5 @@
 from ctypes import (c_char_p, byref, POINTER, c_bool, create_string_buffer,
-                    c_size_t, string_at)
+                    c_size_t, string_at, Array)
 
 from llvmlite.binding import ffi
 from llvmlite.binding.linker import link_modules
@@ -204,6 +204,34 @@ class ModuleRef(ffi.ObjectRef):
         it = ffi.lib.LLVMPY_ModuleTypesIter(self)
         return _TypesIterator(it, dict(module=self))
 
+    def get_builtin_type(self, name):
+        """
+            返回 LLVM IR 中的系统内置的类型实例，对于 Module 中的结构体类型
+        """
+        p = ffi.lib.LLVMPY_GetBuiltinTypeForName(self, _encode_string(name), len(name))
+        if not p:
+            raise NameError(name)
+        return TypeRef(p)
+    
+    def pointer_type(self, ty):
+        return ffi.lib.LLVMPY_GetPointerType(ty)
+
+    def function_type(self, returnTy, argTys, isVarArg=False):
+        argsTyPtr = [x._ptr for x in argTys] # unwarp to raw ptr.
+        args = (ffi.LLVMTypeRef * len(argTys))(*argsTyPtr)
+        p = ffi.lib.LLVMPY_GetFunctionType(returnTy, len(argTys), args, isVarArg);
+        if not p:
+            raise RuntimeError(
+                "get function type error")
+        return TypeRef(p)
+    
+    def new_function(self, fnTy, name):
+        p = ffi.lib.LLVMPY_CreateFunction(self, fnTy, _encode_string(name), len(name))
+        if not p:
+            raise RuntimeError(
+                "create function error")
+        return ValueRef(p, 'function', dict(module=self))
+
     def clone(self):
         return ModuleRef(ffi.lib.LLVMPY_CloneModule(self), self._context)
 
@@ -347,3 +375,15 @@ ffi.lib.LLVMPY_SetModuleName.argtypes = [ffi.LLVMModuleRef, c_char_p]
 
 ffi.lib.LLVMPY_GetModuleSourceFileName.argtypes = [ffi.LLVMModuleRef]
 ffi.lib.LLVMPY_GetModuleSourceFileName.restype = c_char_p
+
+ffi.lib.LLVMPY_GetBuiltinTypeForName.argtypes = [ffi.LLVMModuleRef, c_char_p, c_size_t] # , POINTER(c_ubyte)]
+ffi.lib.LLVMPY_GetBuiltinTypeForName.restype = ffi.LLVMTypeRef
+
+ffi.lib.LLVMPY_GetPointerType.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_GetPointerType.restype = ffi.LLVMTypeRef
+
+ffi.lib.LLVMPY_GetFunctionType.argtypes = [ffi.LLVMTypeRef, c_size_t, POINTER(ffi.LLVMTypeRef), c_bool]
+ffi.lib.LLVMPY_GetFunctionType.restype = ffi.LLVMTypeRef
+
+ffi.lib.LLVMPY_CreateFunction.argtypes = [ffi.LLVMModuleRef, ffi.LLVMTypeRef, c_char_p, c_size_t]
+ffi.lib.LLVMPY_CreateFunction.restype = ffi.LLVMValueRef

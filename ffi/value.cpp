@@ -209,6 +209,98 @@ LLVMPY_FunctionReturnType(LLVMValueRef F) {
     return wrap(func->getReturnType());
 }
 
+API_EXPORT(LLVMTypeRef)
+LLVMPY_GetBuiltinTypeForName(LLVMModuleRef M, const char *name, size_t len) {
+    /* 返回 LLVM 系统中预置的类型，用于 构造函数类型、进行代码生成
+       Ref: https://llvm.org/doxygen/Type_8h_source.html#l00140
+     */
+    using namespace llvm;
+    // LLVMContextRef ctx = LLVMGetModuleContext(
+    LLVMContext* C = llvm::unwrap(LLVMGetModuleContext(M));
+    
+    std::string k(name, len);
+    if(k == "void") 
+        return wrap(llvm::Type::getVoidTy(*C));
+    if(k == "label") 
+        return wrap(llvm::Type::getLabelTy(*C));
+    if(k == "halt" || k == "f16") 
+        return wrap(llvm::Type::getHalfTy(*C));
+    if(k == "bfloat") 
+        return wrap(llvm::Type::getBFloatTy(*C));
+    if(k == "float" || k == "f32") 
+        return wrap(llvm::Type::getFloatTy(*C));
+    if(k == "double" || k == "f64") 
+        return wrap(llvm::Type::getDoubleTy(*C));
+    if(k == "metadata") 
+        return wrap(llvm::Type::getMetadataTy(*C));
+    if(k == "x86_fp80") 
+        return wrap(llvm::Type::getX86_FP80Ty(*C));
+    if(k == "fp128") 
+        return wrap(llvm::Type::getFP128Ty(*C));
+    if(k == "ppc_fp128") 
+        return wrap(llvm::Type::getPPC_FP128Ty(*C));
+    if(k == "x86_mmx") 
+        return wrap(llvm::Type::getX86_MMXTy(*C));
+    if(k == "x86_amx") 
+        return wrap(llvm::Type::getX86_AMXTy(*C));
+    if(k == "token") 
+        return wrap(llvm::Type::getTokenTy(*C));
+    //if(k == "intN") 
+    //    return wrap(llvm::Type::getIntNTy(*C));
+    if(k == "i1" || k == "int1")  
+        return wrap(llvm::Type::getInt1Ty(*C));
+    if(k == "i8" || k == "int8") 
+        return wrap(llvm::Type::getInt8Ty(*C));
+    if(k == "i16" || k == "int16") 
+        return wrap(llvm::Type::getInt16Ty(*C));
+    if(k == "i8" || k == "int32") 
+        return wrap(llvm::Type::getInt32Ty(*C));
+    if(k == "i64" || k == "int64")  
+        return wrap(llvm::Type::getInt64Ty(*C));
+    if(k == "i128" || k == "int128") 
+        return wrap(llvm::Type::getInt128Ty(*C));
+ 
+    return nullptr;
+}
+
+API_EXPORT(LLVMTypeRef)
+LLVMPY_GetPointerType(LLVMTypeRef type) {
+    llvm::Type *ty = llvm::unwrap(type);
+    //llvm::PointerType *ty = llvm::dyn_cast<llvm::PointerType>(unwrapped);
+    if (ty != nullptr) {
+        return llvm::wrap(ty->getPointerTo());
+    }
+    return nullptr;
+}
+
+API_EXPORT(LLVMTypeRef)
+LLVMPY_GetFunctionType(LLVMTypeRef returnTy, size_t argc, LLVMTypeRef* args, bool isVarArg)
+{
+    // 虽然单纯的 初始化函数不需要 参数，但是声明的谓词函数（eg. 抽象类型关联）均需要参数
+    using namespace llvm;
+
+    std::vector<llvm::Type *> arg_types;
+    for(size_t i=0; i<argc; i++) 
+        arg_types.push_back(llvm::unwrap(args[i]));
+    
+    llvm::FunctionType *ftype = llvm::FunctionType::get(
+		llvm::unwrap(returnTy), arg_types, isVarArg);
+
+    return llvm::wrap(ftype); 
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_CreateFunction(LLVMModuleRef M, LLVMTypeRef FT, const char *name, size_t len) 
+{
+    // Function *func = unwrap<Function>(F);
+    llvm::FunctionType* fnTy = llvm::unwrap<llvm::FunctionType>(FT);
+    if(fnTy) {
+        llvm::Function *fn = llvm::Function::Create(fnTy, llvm::Function::ExternalLinkage, std::string(name, len), llvm::unwrap(M));
+        return llvm::wrap(fn);
+    }
+    return nullptr; 
+}
+
 API_EXPORT(LLVMInstructionsIteratorRef)
 LLVMPY_BlockInstructionsIter(LLVMValueRef B) {
     using namespace llvm;

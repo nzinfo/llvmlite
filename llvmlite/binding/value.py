@@ -473,6 +473,9 @@ ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
 ffi.lib.LLVMPY_FunctionReturnType.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionReturnType.restype = ffi.LLVMTypeRef
 
+# ffi.lib.LLVMPY_GetBuiltinTypeForName.argtypes = [ffi.LLVMModuleRef, c_char_p, c_size_t] # , POINTER(c_ubyte)]
+# ffi.lib.LLVMPY_GetBuiltinTypeForName.restype = ffi.LLVMTypeRef
+
 ffi.lib.LLVMPY_CallInstAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_CallInstAttributesIter.restype = ffi.LLVMAttributeListIterator
 
