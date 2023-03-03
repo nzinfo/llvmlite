@@ -253,7 +253,7 @@ LLVMPY_GetBuiltinTypeForName(LLVMModuleRef M, const char *name, size_t len) {
         return wrap(llvm::Type::getInt8Ty(*C));
     if(k == "i16" || k == "int16") 
         return wrap(llvm::Type::getInt16Ty(*C));
-    if(k == "i8" || k == "int32") 
+    if(k == "i32" || k == "int32") 
         return wrap(llvm::Type::getInt32Ty(*C));
     if(k == "i64" || k == "int64")  
         return wrap(llvm::Type::getInt64Ty(*C));
@@ -299,6 +299,45 @@ LLVMPY_CreateFunction(LLVMModuleRef M, LLVMTypeRef FT, const char *name, size_t 
         return llvm::wrap(fn);
     }
     return nullptr; 
+}
+
+API_EXPORT(LLVMValueRef) //LLVMBasicBlockRef) 
+LLVMPY_AppendBasicBlock(LLVMValueRef Fn, const char *name, size_t len)
+{
+    // 接口上保留 长度，实际调用忽略
+    using namespace llvm;
+    LLVMBasicBlockRef BRef = LLVMAppendBasicBlock(Fn, name);
+    return LLVMBasicBlockAsValue(BRef);
+}
+
+API_EXPORT(void) 
+LLVMPY_BuilderSetToBasicBlock(LLVMBuilderRef Builder, LLVMValueRef B) // LLVMBasicBlockRef Block)
+{   
+    using namespace llvm;
+    BasicBlock *block = unwrap<BasicBlock>(B);
+    LLVMPositionBuilderAtEnd(Builder, wrap(block));
+}
+
+API_EXPORT(LLVMValueRef) // LLVMBasicBlockRef) 
+LLVMPY_BuilderGetBlock(LLVMBuilderRef Builder)
+{
+    // llvmlite binding 部分，目前无法封装一个 LLVMValueRef 上下文信息不足，此方法保留为空 不实现
+    // using namespace llvm;
+    // BasicBlock *block = unwrap<BasicBlock>(B);
+    // return LLVMGetInsertBlock(Builder);
+    return nullptr;
+}
+API_EXPORT(LLVMValueRef) 
+LLVMPY_BuildCallInst(LLVMBuilderRef B, LLVMTypeRef T, LLVMValueRef Fn,
+                            LLVMValueRef *Args, unsigned NumArgs,
+                            const char *name, size_t len) {
+    return LLVMBuildCall2(B, T, Fn, Args, NumArgs, name);
+}
+
+API_EXPORT(LLVMValueRef) 
+LLVMPY_ConstIntValue(LLVMTypeRef IntTy, unsigned long long N,
+                          LLVMBool SignExtend) {
+    return LLVMConstInt(IntTy, N, SignExtend);                       
 }
 
 API_EXPORT(LLVMInstructionsIteratorRef)

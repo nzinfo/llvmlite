@@ -36,6 +36,8 @@ LLVMObjectCacheRef = _make_opaque_ref("LLVMObjectCache")
 LLVMObjectFileRef = _make_opaque_ref("LLVMObjectFile")
 LLVMSectionIteratorRef = _make_opaque_ref("LLVMSectionIterator")
 
+# 指令构造相关的封装
+LLVMBuilderRef = _make_opaque_ref("LLVMBuilder")
 
 class _LLVMLock:
     """A Lock to guarantee thread-safety for the LLVM C-API.

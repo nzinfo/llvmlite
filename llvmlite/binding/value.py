@@ -308,7 +308,13 @@ class ValueRef(ffi.ObjectRef):
                              % (self._kind,))
         return ffi.ret_string(ffi.lib.LLVMPY_GetOpcodeName(self))
 
-
+    # function 相关的函数
+    def append_basic_block(self, name):
+        if not self.is_function:
+            raise ValueError('expected function value, got %s' % (self._kind,))
+        p = ffi.lib.LLVMPY_AppendBasicBlock(self, _encode_string(name), len(name))
+        return ValueRef(p, 'block', self)
+        
 class _ValueIterator(ffi.ObjectRef):
 
     kind = None  # derived classes must specify the Value kind value
@@ -473,8 +479,8 @@ ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
 ffi.lib.LLVMPY_FunctionReturnType.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionReturnType.restype = ffi.LLVMTypeRef
 
-# ffi.lib.LLVMPY_GetBuiltinTypeForName.argtypes = [ffi.LLVMModuleRef, c_char_p, c_size_t] # , POINTER(c_ubyte)]
-# ffi.lib.LLVMPY_GetBuiltinTypeForName.restype = ffi.LLVMTypeRef
+ffi.lib.LLVMPY_AppendBasicBlock.argtypes = [ffi.LLVMValueRef, c_char_p, c_size_t] 
+ffi.lib.LLVMPY_AppendBasicBlock.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_CallInstAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_CallInstAttributesIter.restype = ffi.LLVMAttributeListIterator

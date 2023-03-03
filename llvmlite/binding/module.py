@@ -5,6 +5,7 @@ from llvmlite.binding import ffi
 from llvmlite.binding.linker import link_modules
 from llvmlite.binding.common import _decode_string, _encode_string
 from llvmlite.binding.value import ValueRef, TypeRef
+from llvmlite.binding.builder import BuilderRef
 from llvmlite.binding.context import get_global_context
 
 
@@ -52,6 +53,7 @@ class ModuleRef(ffi.ObjectRef):
     def __init__(self, module_ptr, context):
         super(ModuleRef, self).__init__(module_ptr)
         self._context = context
+        self._ir_builder = None # 额外限制只有一个 builder. 
 
     def __str__(self):
         with ffi.OutputString() as outstr:
@@ -74,6 +76,11 @@ class ModuleRef(ffi.ObjectRef):
             ffi.lib.LLVMPY_DisposeString(ptr)
 
     def _dispose(self):
+        # clear irbuilder
+        if self._ir_builder:
+            ffi.lib.LLVMPY_DisposeBuilder(self._ir_builder)
+            self._ir_builder = None
+            
         self._capi.LLVMPY_DisposeModule(self)
 
     def get_function(self, name):
@@ -231,6 +238,13 @@ class ModuleRef(ffi.ObjectRef):
             raise RuntimeError(
                 "create function error")
         return ValueRef(p, 'function', dict(module=self))
+    
+    @property
+    def ir_builder(self):
+        if self._ir_builder:
+            return self._ir_builder
+        self._ir_builder = BuilderRef(ffi.lib.LLVMPY_CreateIRBuilder(self))
+        return self._ir_builder
 
     def clone(self):
         return ModuleRef(ffi.lib.LLVMPY_CloneModule(self), self._context)
@@ -314,6 +328,7 @@ ffi.lib.LLVMPY_ParseBitcode.argtypes = [ffi.LLVMContextRef,
 ffi.lib.LLVMPY_ParseBitcode.restype = ffi.LLVMModuleRef
 
 ffi.lib.LLVMPY_DisposeModule.argtypes = [ffi.LLVMModuleRef]
+ffi.lib.LLVMPY_DisposeBuilder.argtypes = [ffi.LLVMBuilderRef]
 
 ffi.lib.LLVMPY_PrintModuleToString.argtypes = [ffi.LLVMModuleRef,
                                                POINTER(c_char_p)]
@@ -387,3 +402,6 @@ ffi.lib.LLVMPY_GetFunctionType.restype = ffi.LLVMTypeRef
 
 ffi.lib.LLVMPY_CreateFunction.argtypes = [ffi.LLVMModuleRef, ffi.LLVMTypeRef, c_char_p, c_size_t]
 ffi.lib.LLVMPY_CreateFunction.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_CreateIRBuilder.argtypes = [ffi.LLVMModuleRef]
+ffi.lib.LLVMPY_CreateIRBuilder.restype = ffi.LLVMBuilderRef

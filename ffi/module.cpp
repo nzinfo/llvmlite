@@ -96,6 +96,10 @@ API_EXPORT(void)
 LLVMPY_DisposeModule(LLVMModuleRef m) { return LLVMDisposeModule(m); }
 
 API_EXPORT(void)
+LLVMPY_DisposeBuilder(LLVMBuilderRef irb) { return LLVMDisposeBuilder(irb); }
+
+
+API_EXPORT(void)
 LLVMPY_PrintModuleToString(LLVMModuleRef M, const char **outstr) {
     // Change the locale to en_US before calling LLVM to print the module
     // due to a LLVM bug https://llvm.org/bugs/show_bug.cgi?id=12906
@@ -233,5 +237,11 @@ LLVMPY_DisposeTypesIter(LLVMTypesIteratorRef TyI) { delete llvm::unwrap(TyI); }
 
 API_EXPORT(LLVMModuleRef)
 LLVMPY_CloneModule(LLVMModuleRef M) { return LLVMCloneModule(M); }
+
+// 代码生成相关的接口
+API_EXPORT(LLVMBuilderRef)
+LLVMPY_CreateIRBuilder(LLVMModuleRef M) { 
+    return LLVMCreateBuilderInContext(LLVMGetModuleContext(M));
+}
 
 } // end extern "C"
