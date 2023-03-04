@@ -641,6 +641,23 @@ LLVMPY_AddFunctionAttr(LLVMValueRef Fn, unsigned AttrKind) {
     LLVMAddAttributeAtIndex(Fn, LLVMAttributeReturnIndex, attr_ref);
 }
 
+API_EXPORT(void)
+LLVMPY_SetFunctionStringAttr(LLVMValueRef Fn, const char *k, size_t klen) // , const char *v, size_t vlen) 
+{
+    using namespace llvm;
+    Function *F = unwrap<Function>(Fn);
+    F->addFnAttr(std::string(k, klen));
+    // LLVMContextRef ctx = LLVMGetModuleContext(LLVMGetGlobalParent(Fn));
+    // LLVMAttributeRef attrRef =	LLVMCreateStringAttribute ( ctx, k, klen, v, vlen)
+}
+/*
+API_EXPORT(bool)
+LLVMPY_HasFunctionStringAttr(LLVMValueRef Fn, const char *k, size_t klen) {
+    // 仅检查是否存在这个属性
+
+}
+*/
+
 API_EXPORT(int)
 LLVMPY_IsDeclaration(LLVMValueRef GV) { return LLVMIsDeclaration(GV); }
 
@@ -665,6 +682,12 @@ LLVMPY_IsGlobalVariableConstant(LLVMValueRef V)
     using namespace llvm;
     auto *GV = dyn_cast<GlobalVariable>(unwrap<Value>(V));
     return GV && GV->isConstant();
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_GlobalGetInitializer(LLVMValueRef G)
+{
+    return LLVMGetInitializer(G);
 }
 
 API_EXPORT(LLVMValueRef)

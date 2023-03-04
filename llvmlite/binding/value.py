@@ -262,7 +262,9 @@ class ValueRef(ffi.ObjectRef):
         attrval = ffi.lib.LLVMPY_GetEnumAttributeKindForName(
             _encode_string(attrname), len(attrname))
         if attrval == 0:
-            raise ValueError('no such attribute {!r}'.format(attrname))
+            # 处理成字符串属性
+            ffi.lib.LLVMPY_SetFunctionStringAttr(self, _encode_string(attrname), len(attrname))
+            # raise ValueError('no such attribute {!r}'.format(attrname))
         ffi.lib.LLVMPY_AddFunctionAttr(self, attrval)
 
     @property
@@ -344,6 +346,17 @@ class ValueRef(ffi.ObjectRef):
             raise ValueError('expected function value, got %s' % (self._kind,))
         return TypeRef(ffi.lib.LLVMPY_FunctionReturnType(self))
     
+    """    
+    @property
+    def function_set_attr(self, attr):
+        '''
+        Function's return type.
+        '''
+        if not self.is_function:
+            raise ValueError('expected function value, got %s' % (self._kind,))
+        return ffi.lib.LLVMPY_SetFunctionStringAttr(self, )
+    """
+
     @property
     def instructions(self):
         """
@@ -377,6 +390,17 @@ class ValueRef(ffi.ObjectRef):
             raise ValueError('expected instruction value, got %s'
                              % (self._kind,))
         return ffi.ret_string(ffi.lib.LLVMPY_GetOpcodeName(self))
+
+    @property
+    def initializer(self):
+        """
+        This value's initializer
+        """
+        if not self.is_global:
+            raise ValueError('expected global value, got %s'
+                             % (self._kind,))
+        return ValueRef(ffi.lib.LLVMPY_GlobalGetInitializer(self),
+                        self._kind, self._parents)
 
     # function 相关的函数
     def append_basic_block(self, name):
@@ -620,6 +644,9 @@ ffi.lib.LLVMPY_IsGlobalVariableConstant.restype = c_int
 ffi.lib.LLVMPY_FunctionAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
 
+ffi.lib.LLVMPY_SetFunctionStringAttr.argtypes = [ffi.LLVMValueRef, c_char_p, c_size_t]
+# ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
+
 ffi.lib.LLVMPY_FunctionReturnType.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionReturnType.restype = ffi.LLVMTypeRef
 
@@ -681,6 +708,9 @@ ffi.lib.LLVMPY_OperandsIterNext.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_GetOpcodeName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetOpcodeName.restype = c_void_p
+
+ffi.lib.LLVMPY_GlobalGetInitializer.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GlobalGetInitializer.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_DeleteBasicBlock.argtypes = [ffi.LLVMValueRef]
 # ffi.lib.LLVMPY_DeleteBasicBlock.restype = ffi.LLVMBlocksIterator
