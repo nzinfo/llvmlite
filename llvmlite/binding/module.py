@@ -44,6 +44,14 @@ def parse_bitcode(bitcode, context=None):
                 "LLVM bitcode parsing error\n{0}".format(errmsg))
     return mod
 
+def parse_dbg_declare(inst):
+    """
+    Parse llvm.dbg.declare and return the results.
+    """
+    return (ValueRef(ffi.lib.LLVMPY_ParseDbgDeclareAddr(inst),
+                     'instruction', inst._parents),
+            ffi.lib.LLVMPY_ParseDbgDeclareVar(inst),
+            ffi.lib.LLVMPY_ParseDbgDeclareType(inst))
 
 class ModuleRef(ffi.ObjectRef):
     """
@@ -112,6 +120,18 @@ class ModuleRef(ffi.ObjectRef):
         if not p:
             raise NameError(name)
         return TypeRef(p)
+    
+    def get_type_size(self, ty):
+        """
+        Get the size of type in bits
+        """
+        return ffi.lib.LLVMPY_TypeSize(self, ty)
+
+    def get_type_store_size(self, ty):
+        """
+        Get the size of type in bits
+        """
+        return ffi.lib.LLVMPY_TypeStoreSize(self, ty)
 
     def verify(self):
         """
@@ -353,6 +373,12 @@ ffi.lib.LLVMPY_SetTarget.argtypes = [ffi.LLVMModuleRef, c_char_p]
 ffi.lib.LLVMPY_GetNamedGlobalVariable.argtypes = [ffi.LLVMModuleRef, c_char_p]
 ffi.lib.LLVMPY_GetNamedGlobalVariable.restype = ffi.LLVMValueRef
 
+ffi.lib.LLVMPY_TypeSize.argtypes = [ffi.LLVMModuleRef, ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeSize.restype = c_size_t
+
+ffi.lib.LLVMPY_TypeStoreSize.argtypes = [ffi.LLVMModuleRef, ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeStoreSize.restype = c_size_t
+
 ffi.lib.LLVMPY_GetNamedStructType.argtypes = [ffi.LLVMModuleRef, c_char_p]
 ffi.lib.LLVMPY_GetNamedStructType.restype = ffi.LLVMTypeRef
 
@@ -387,6 +413,15 @@ ffi.lib.LLVMPY_GetModuleName.argtypes = [ffi.LLVMModuleRef]
 ffi.lib.LLVMPY_GetModuleName.restype = c_char_p
 
 ffi.lib.LLVMPY_SetModuleName.argtypes = [ffi.LLVMModuleRef, c_char_p]
+
+ffi.lib.LLVMPY_ParseDbgDeclareAddr.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_ParseDbgDeclareAddr.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_ParseDbgDeclareVar.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_ParseDbgDeclareVar.restype = c_char_p
+
+ffi.lib.LLVMPY_ParseDbgDeclareType.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_ParseDbgDeclareType.restype = c_char_p
 
 ffi.lib.LLVMPY_GetModuleSourceFileName.argtypes = [ffi.LLVMModuleRef]
 ffi.lib.LLVMPY_GetModuleSourceFileName.restype = c_char_p

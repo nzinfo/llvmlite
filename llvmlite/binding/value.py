@@ -61,14 +61,57 @@ class TypeRef(ffi.ObjectRef):
         return ffi.lib.LLVMPY_TypeIsPointer(self)
 
     @property
+    def is_vector(self):
+        """
+        Returns true is the type is a vector type.
+        """
+        return ffi.lib.LLVMPY_TypeIsVector(self)
+
+    @property
+    def is_array(self):
+        """
+        Returns true is the type is an array type.
+        """
+        return ffi.lib.LLVMPY_TypeIsArray(self)
+
+    @property
+    def is_struct(self):
+        """
+        Returns true is the type is an array type.
+        """
+        return ffi.lib.LLVMPY_TypeIsStruct(self)
+
+    @property
     def element_type(self):
         """
         Returns the pointed-to type. When the type is not a pointer,
         raises exception.
         """
-        if not self.is_pointer:
-            raise ValueError("Type {} is not a pointer".format(self))
+        #if not self.is_pointer:
+        #    raise ValueError("Type {} is not a pointer".format(self))
+        if not (self.is_pointer or self.is_array or self.is_vector):
+            raise ValueError(f"Type {self} has no elements")
         return TypeRef(ffi.lib.LLVMPY_GetElementType(self))
+
+    @property
+    def struct_num_elements(self):
+        """
+        Returns the pointed-to type. When the type is not a pointer,
+        raises exception.
+        """
+        if not self.is_struct:
+            raise ValueError(f"Type {self} has no elements")
+        return ffi.lib.LLVMPY_GetStructNumElements(self)
+
+    def struct_element_type(self, n):
+        """
+        Returns the nth type in struct. When the type is not a pointer,
+        raises exception.
+        """
+        if not self.is_struct:
+            raise ValueError(f"Type {self} has no elements")
+        assert n < self.struct_num_elements, f"Invalid type index: {n}"
+        return TypeRef(ffi.lib.LLVMPY_GetStructElementType(self, n))
 
     def __str__(self):
         return ffi.ret_string(ffi.lib.LLVMPY_PrintType(self))
@@ -141,8 +184,35 @@ class ValueRef(ffi.ObjectRef):
         return self._kind == 'operand'
 
     @property
+    def is_constant(self):
+        """
+        Whether this operand is a contant expr
+        """
+        return ffi.lib.LLVMPY_IsConstant(self) != 0
+
+    def is_global_constant(self):
+        """
+        Whether this value is global variable and the memory it references
+        is constant.
+        """
+        return ffi.lib.LLVMPY_IsGlobalVariableConstant(self) != 0
+
+    @property
+    def is_constantexpr(self):
+        """
+        Whether this operand is a contant expr
+        """
+        return ffi.lib.LLVMPY_IsConstantExpr(self) != 0
+
+    @property
     def name(self):
         return _decode_string(ffi.lib.LLVMPY_GetValueName(self))
+
+    @property
+    def dbg_loc(self):
+        return (_decode_string(ffi.lib.LLVMPY_GetDbgFile(self)),
+                ffi.lib.LLVMPY_GetDbgLine(self),
+                ffi.lib.LLVMPY_GetDbgCol(self))
 
     @name.setter
     def name(self, val):
@@ -314,7 +384,48 @@ class ValueRef(ffi.ObjectRef):
             raise ValueError('expected function value, got %s' % (self._kind,))
         p = ffi.lib.LLVMPY_AppendBasicBlock(self, _encode_string(name), len(name))
         return ValueRef(p, 'block', self)
-        
+
+    def delete_block(self):
+        if not self.is_block:
+            raise ValueError('expected block value, got %s' % (self._kind,))
+        ffi.lib.LLVMPY_DeleteBasicBlock(self)
+
+    @property
+    def ce_as_inst(self):
+        """
+        ConstantExpr as Instruction
+        """
+        if not self.is_constantexpr:
+            raise ValueError('expected constant expr, got %s' % (self._kind,))
+        return ValueRef(ffi.lib.LLVMPY_ConstantExprAsInst(self),
+                        'instruction', self._parents)
+
+    @property
+    def phi_incoming_count(self):
+        """
+        Get incoming value and block of a PHI node
+        """
+        if not self.opcode == 'phi':
+            raise ValueError('expected phi instruction, got %s'
+                             % (self.opcode()))
+        return ffi.lib.LLVMPY_PhiCountIncoming(self)
+
+    def phi_incoming(self, idx):
+        """
+        Get incoming value and block of a PHI node
+        """
+        if not self.opcode == 'phi':
+            raise ValueError('expected phi instruction, got %s'
+                             % (self.opcode()))
+        if idx >= self.phi_incoming_count:
+            raise ValueError('index of phi instruction out of bounds')
+
+        # FIXME: we screw up the parents here
+        return (ValueRef(ffi.lib.LLVMPY_PhiGetIncomingValue(self, idx),
+                         'operand', self._parents),
+                ValueRef(ffi.lib.LLVMPY_PhiGetIncomingBlock(self, idx),
+                         'block', self._parents))
+
 class _ValueIterator(ffi.ObjectRef):
 
     kind = None  # derived classes must specify the Value kind value
@@ -431,6 +542,9 @@ ffi.lib.LLVMPY_GetGlobalParent.restype = ffi.LLVMModuleRef
 ffi.lib.LLVMPY_GetValueName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetValueName.restype = c_char_p
 
+ffi.lib.LLVMPY_GetDbgFile.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetDbgFile.restype = c_char_p
+
 ffi.lib.LLVMPY_SetValueName.argtypes = [ffi.LLVMValueRef, c_char_p]
 
 ffi.lib.LLVMPY_TypeOf.argtypes = [ffi.LLVMValueRef]
@@ -443,12 +557,32 @@ ffi.lib.LLVMPY_PrintType.restype = c_void_p
 ffi.lib.LLVMPY_TypeIsPointer.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_TypeIsPointer.restype = c_bool
 
+ffi.lib.LLVMPY_TypeIsArray.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeIsArray.restype = c_bool
+
+ffi.lib.LLVMPY_TypeIsStruct.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeIsStruct.restype = c_bool
+
+ffi.lib.LLVMPY_TypeIsVector.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeIsVector.restype = c_bool
+
 ffi.lib.LLVMPY_GetElementType.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_GetElementType.restype = ffi.LLVMTypeRef
 
+ffi.lib.LLVMPY_GetStructNumElements.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_GetStructNumElements.restype = c_uint
+
+ffi.lib.LLVMPY_GetStructElementType.argtypes = [ffi.LLVMTypeRef, c_uint]
+ffi.lib.LLVMPY_GetStructElementType.restype = ffi.LLVMTypeRef
 
 ffi.lib.LLVMPY_GetTypeName.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_GetTypeName.restype = c_void_p
+
+ffi.lib.LLVMPY_GetDbgLine.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetDbgLine.restype = c_uint
+
+ffi.lib.LLVMPY_GetDbgCol.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetDbgCol.restype = c_uint
 
 ffi.lib.LLVMPY_GetLinkage.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetLinkage.restype = c_int
@@ -472,6 +606,16 @@ ffi.lib.LLVMPY_AddFunctionAttr.argtypes = [ffi.LLVMValueRef, c_uint]
 
 ffi.lib.LLVMPY_IsDeclaration.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_IsDeclaration.restype = c_int
+
+ffi.lib.LLVMPY_IsConstant.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_IsConstant.restype = c_int
+
+ffi.lib.LLVMPY_IsConstantExpr.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_IsConstantExpr.restype = c_int
+
+ffi.lib.LLVMPY_IsGlobalVariableConstant.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_IsGlobalVariableConstant.restype = c_int
+
 
 ffi.lib.LLVMPY_FunctionAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
@@ -537,3 +681,18 @@ ffi.lib.LLVMPY_OperandsIterNext.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_GetOpcodeName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetOpcodeName.restype = c_void_p
+
+ffi.lib.LLVMPY_DeleteBasicBlock.argtypes = [ffi.LLVMValueRef]
+# ffi.lib.LLVMPY_DeleteBasicBlock.restype = ffi.LLVMBlocksIterator
+
+ffi.lib.LLVMPY_ConstantExprAsInst.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_ConstantExprAsInst.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_PhiCountIncoming.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_PhiCountIncoming.restype = c_uint
+
+ffi.lib.LLVMPY_PhiGetIncomingValue.argtypes = [ffi.LLVMValueRef, c_uint]
+ffi.lib.LLVMPY_PhiGetIncomingValue.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_PhiGetIncomingBlock.argtypes = [ffi.LLVMValueRef, c_uint]
+ffi.lib.LLVMPY_PhiGetIncomingBlock.restype = ffi.LLVMValueRef

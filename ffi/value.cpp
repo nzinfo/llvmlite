@@ -6,6 +6,7 @@
 
 // the following is needed for WriteGraph()
 #include "llvm/Analysis/CFGPrinter.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 
 /* An iterator around a attribute list, including the stop condition */
 struct AttributeListIterator {
@@ -153,7 +154,7 @@ LLVMPY_ArgumentAttributesIter(LLVMValueRef A) {
     using namespace llvm;
     Argument *arg = unwrap<Argument>(A);
     unsigned argno = arg->getArgNo();
-#if LLVM_VERSION_MAJOR >13    
+#if LLVM_VERSION_MAJOR >=14    
     AttributeSet attrs =
         arg->getParent()->getAttributes().getParamAttrs(argno);
 #else    
@@ -311,6 +312,13 @@ LLVMPY_AppendBasicBlock(LLVMValueRef Fn, const char *name, size_t len)
 }
 
 API_EXPORT(void) 
+LLVMPY_DeleteBasicBlock(LLVMValueRef B) 
+{   
+    if(LLVMValueIsBasicBlock(B))
+        LLVMDeleteBasicBlock(LLVMValueAsBasicBlock(B));
+}
+
+API_EXPORT(void) 
 LLVMPY_BuilderSetToBasicBlock(LLVMBuilderRef Builder, LLVMValueRef B) // LLVMBasicBlockRef Block)
 {   
     using namespace llvm;
@@ -456,6 +464,49 @@ LLVMPY_PrintValueToString(LLVMValueRef Val, const char **outstr) {
 API_EXPORT(const char *)
 LLVMPY_GetValueName(LLVMValueRef Val) { return LLVMGetValueName(Val); }
 
+API_EXPORT(const char *)
+LLVMPY_GetDbgFile(LLVMValueRef Val)
+{
+    using namespace llvm;
+    auto *val = unwrap<Value>(Val);
+    if (auto *I = dyn_cast<Instruction>(val)) {
+        if (auto &D = I->getDebugLoc()) {
+            return LLVMPY_CreateString(D.get()->getFilename().str().c_str());
+        }
+    }
+
+    return LLVMPY_CreateString("");
+}
+
+API_EXPORT(unsigned)
+LLVMPY_GetDbgLine(LLVMValueRef Val)
+{
+    using namespace llvm;
+    auto *val = unwrap<Value>(Val);
+    if (auto *I = dyn_cast<Instruction>(val)) {
+        if (auto &D = I->getDebugLoc()) {
+            return D.getLine();
+        }
+    }
+
+    return 0;
+}
+
+
+API_EXPORT(unsigned)
+LLVMPY_GetDbgCol(LLVMValueRef Val)
+{
+    using namespace llvm;
+    auto *val = unwrap<Value>(Val);
+    if (auto *I = dyn_cast<Instruction>(val)) {
+        if (auto &D = I->getDebugLoc()) {
+            return D.getCol();
+        }
+    }
+
+    return 0;
+}
+
 API_EXPORT(void)
 LLVMPY_SetValueName(LLVMValueRef Val, const char *Name) {
     LLVMSetValueName(Val, Name);
@@ -492,12 +543,61 @@ LLVMPY_TypeIsPointer(LLVMTypeRef type) {
     return llvm::unwrap(type)->isPointerTy();
 }
 
+API_EXPORT(bool)
+LLVMPY_TypeIsArray(LLVMTypeRef type)
+{
+    return llvm::unwrap(type)->isArrayTy();
+}
+
+API_EXPORT(bool)
+LLVMPY_TypeIsStruct(LLVMTypeRef type)
+{
+    return llvm::unwrap(type)->isStructTy();
+}
+
+API_EXPORT(bool)
+LLVMPY_TypeIsVector(LLVMTypeRef type)
+{
+    return llvm::unwrap(type)->isVectorTy();
+}
+
+
 API_EXPORT(LLVMTypeRef)
 LLVMPY_GetElementType(LLVMTypeRef type) {
     llvm::Type *unwrapped = llvm::unwrap(type);
-    llvm::PointerType *ty = llvm::dyn_cast<llvm::PointerType>(unwrapped);
-    if (ty != nullptr) {
+    //llvm::PointerType *ty = llvm::dyn_cast<llvm::PointerType>(unwrapped);
+    //if (ty != nullptr) {
+    if (auto* ty = llvm::dyn_cast<llvm::PointerType>(unwrapped)) {
         return llvm::wrap(ty->getElementType());
+    }
+    if (auto* ty = llvm::dyn_cast<llvm::ArrayType>(unwrapped)) {
+         return llvm::wrap(ty->getElementType());
+    }
+
+    if (auto* ty = llvm::dyn_cast<llvm::VectorType>(unwrapped)) {
+        return llvm::wrap(ty->getElementType());
+    }
+    return nullptr;
+}
+
+
+API_EXPORT(unsigned)
+LLVMPY_GetStructNumElements(LLVMTypeRef type)
+{
+    llvm::Type* unwrapped = llvm::unwrap(type);
+    if (auto* ty = llvm::dyn_cast<llvm::StructType>(unwrapped)) {
+        return ty->getNumElements();
+    }
+    return 0;
+}
+
+API_EXPORT(LLVMTypeRef)
+LLVMPY_GetStructElementType(LLVMTypeRef type, unsigned n)
+{
+    llvm::Type* unwrapped = llvm::unwrap(type);
+    if (auto* ty = llvm::dyn_cast<llvm::StructType>(unwrapped)) {
+        assert (n < ty->getNumElements() && "Invalid element number");
+        return llvm::wrap(ty->getElementType(n));
     }
     return nullptr;
 }
@@ -543,6 +643,55 @@ LLVMPY_AddFunctionAttr(LLVMValueRef Fn, unsigned AttrKind) {
 
 API_EXPORT(int)
 LLVMPY_IsDeclaration(LLVMValueRef GV) { return LLVMIsDeclaration(GV); }
+
+API_EXPORT(int)
+LLVMPY_IsConstant(LLVMValueRef V)
+{
+    using namespace llvm;
+    return isa<Constant>(unwrap<Value>(V));
+}
+
+
+API_EXPORT(int)
+LLVMPY_IsConstantExpr(LLVMValueRef V)
+{
+    using namespace llvm;
+    return isa<ConstantExpr>(unwrap<Value>(V));
+}
+
+API_EXPORT(int)
+LLVMPY_IsGlobalVariableConstant(LLVMValueRef V)
+{
+    using namespace llvm;
+    auto *GV = dyn_cast<GlobalVariable>(unwrap<Value>(V));
+    return GV && GV->isConstant();
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_ConstantExprAsInst(LLVMValueRef CE)
+{
+    using namespace llvm;
+    return wrap(cast<ConstantExpr>(unwrap<Value>(CE))->getAsInstruction());
+}
+
+
+API_EXPORT(unsigned)
+LLVMPY_PhiCountIncoming(LLVMValueRef P)
+{
+    return LLVMCountIncoming(P);
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_PhiGetIncomingValue(LLVMValueRef P, unsigned Idx)
+{
+    return LLVMGetIncomingValue(P, Idx);
+}
+
+API_EXPORT(LLVMValueRef) // LLVMBasicBlockRef)
+LLVMPY_PhiGetIncomingBlock(LLVMValueRef P, unsigned Idx)
+{
+    return LLVMBasicBlockAsValue(LLVMGetIncomingBlock(P, Idx));
+}
 
 API_EXPORT(void)
 LLVMPY_WriteCFG(LLVMValueRef Fval, const char **OutStr, int ShowInst) {

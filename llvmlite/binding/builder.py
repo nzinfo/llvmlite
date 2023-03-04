@@ -30,7 +30,9 @@ class BuilderRef(ffi.ObjectRef):
     def int_const(self, intTy, N, signed=False):
         return ffi.lib.LLVMPY_ConstIntValue(intTy, N, signed)
 
-    # 为降低接口的复杂性 不提供修改 BasicBlock 的方法 ，只能删除后重新构造
+    # 如果约束需要使用 LLVM IR 中已经存在的变量，则可以通过指令遍历时获取对应的引用
+    
+    # 为降低接口的复杂性 不提供修改 BasicBlock 的方法 ，只能删除后重新构造. BB.delete_block()
     pass
 
 # =============================================================================

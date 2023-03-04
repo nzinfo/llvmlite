@@ -3,6 +3,8 @@
 #include "llvm-c/Analysis.h"
 #include "llvm-c/Core.h"
 #include "llvm/IR/TypeFinder.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include <clocale>
 #include <string>
 
@@ -129,6 +131,46 @@ LLVMPY_SetModuleName(LLVMModuleRef M, const char *Name) {
 }
 
 API_EXPORT(LLVMValueRef)
+LLVMPY_ParseDbgDeclareAddr(LLVMValueRef I)
+{
+    using namespace llvm;
+    if (auto *DD = dyn_cast<DbgDeclareInst>(llvm::unwrap<Value>(I))) {
+        return wrap(DD->getAddress());
+    }
+    if (auto *DD = dyn_cast<DbgValueInst>(llvm::unwrap<Value>(I))) {
+        return wrap(DD->getValue());
+    }
+    return nullptr;
+}
+
+
+API_EXPORT(const char *)
+LLVMPY_ParseDbgDeclareVar(LLVMValueRef I)
+{
+    using namespace llvm;
+    if (auto *DD = dyn_cast<DbgDeclareInst>(llvm::unwrap<Value>(I))) {
+        return DD->getVariable()->getName().str().c_str();
+    }
+    if (auto *DD = dyn_cast<DbgValueInst>(llvm::unwrap<Value>(I))) {
+        return DD->getVariable()->getName().str().c_str();
+    }
+    return "";
+}
+
+API_EXPORT(const char *)
+LLVMPY_ParseDbgDeclareType(LLVMValueRef I)
+{
+    using namespace llvm;
+    if (auto *DD = dyn_cast<DbgDeclareInst>(llvm::unwrap<Value>(I))) {
+        return DD->getVariable()->getType()->getName().str().c_str();
+    }
+    if (auto *DD = dyn_cast<DbgValueInst>(llvm::unwrap<Value>(I))) {
+        return DD->getVariable()->getType()->getName().str().c_str();
+    }
+    return "";
+}
+
+API_EXPORT(LLVMValueRef)
 LLVMPY_GetNamedFunction(LLVMModuleRef M, const char *Name) {
     return LLVMGetNamedFunction(M, Name);
 }
@@ -138,6 +180,21 @@ LLVMPY_GetNamedGlobalVariable(LLVMModuleRef M, const char *Name) {
     using namespace llvm;
     return wrap(unwrap(M)->getGlobalVariable(Name));
 }
+
+API_EXPORT(size_t)
+LLVMPY_TypeSize(LLVMModuleRef mod, LLVMTypeRef type)
+{
+    llvm::Module *m = llvm::unwrap(mod);
+    return m->getDataLayout().getTypeSizeInBits(llvm::unwrap(type));
+}
+
+API_EXPORT(size_t)
+LLVMPY_TypeStoreSize(LLVMModuleRef mod, LLVMTypeRef type)
+{
+    llvm::Module *m = llvm::unwrap(mod);
+    return m->getDataLayout().getTypeStoreSizeInBits(llvm::unwrap(type));
+}
+
 
 API_EXPORT(LLVMTypeRef)
 LLVMPY_GetNamedStructType(LLVMModuleRef M, const char *Name) {
