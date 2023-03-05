@@ -261,7 +261,7 @@ class ValueRef(ffi.ObjectRef):
         attrname = str(attr)
         attrval = ffi.lib.LLVMPY_GetEnumAttributeKindForName(
             _encode_string(attrname), len(attrname))
-        if attrval == 0:
+        if attrval == 0 and attr:
             # 处理成字符串属性
             ffi.lib.LLVMPY_SetFunctionStringAttr(self, _encode_string(attrname), len(attrname))
             # raise ValueError('no such attribute {!r}'.format(attrname))
@@ -497,7 +497,9 @@ class _AttributeListIterator(_AttributeIterator):
         self._capi.LLVMPY_DisposeAttributeListIter(self)
 
     def _next(self):
-        return ffi.ret_bytes(ffi.lib.LLVMPY_AttributeListIterNext(self))
+        v = ffi.lib.LLVMPY_AttributeListIterNext(self)
+        print('ccccc', v, type(v), v is None)
+        return ffi.ret_bytes(v)
 
 
 class _AttributeSetIterator(_AttributeIterator):

@@ -342,6 +342,32 @@ LLVMPY_BuildCallInst(LLVMBuilderRef B, LLVMTypeRef T, LLVMValueRef Fn,
     return LLVMBuildCall2(B, T, Fn, Args, NumArgs, name);
 }
 
+/*
+ * 为了能够进行污点标注，需要支持的指令  alloca , store , load,  getelementptr, bitcast
+ *  
+ *      LLVMValueRef 	LLVMBuildAlloca (LLVMBuilderRef B, LLVMTypeRef Ty, const char *Name)
+ *      LLVMValueRef 	LLVMBuildArrayAlloca (LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef Val, const char *Name)
+ *      LLVMValueRef 	LLVMBuildLoad2 (LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef PointerVal, const char *Name)
+ *      LLVMValueRef 	LLVMBuildStore (LLVMBuilderRef B, LLVMValueRef Val, LLVMValueRef PointerVal)
+ * 
+ *      LLVMValueRef 	LLVMBuildGEP2 (LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef Pointer, LLVMValueRef *Indices, 
+ *                                             unsigned NumIndices, const char *Name)
+ *      LLVMValueRef 	LLVMBuildInBoundsGEP2 (LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef Pointer, LLVMValueRef *Indices, 
+ *                                             unsigned NumIndices, const char *Name)
+ *      LLVMValueRef 	LLVMBuildStructGEP2 (LLVMBuilderRef B, LLVMTypeRef Ty, LLVMValueRef Pointer, 
+ *                                             unsigned Idx, const char *Name)
+ *      
+ *      LLVMValueRef 	LLVMBuildBitCast (LLVMBuilderRef B, LLVMValueRef Val, LLVMTypeRef DestTy, const char *Name)
+ *                      // ... 可能存在其他 BitCast 操作
+ *      
+ *      // 对于 BitStruct 的支持
+ *      LLVMValueRef 	LLVMBuildZExt (LLVMBuilderRef B, LLVMValueRef Val, LLVMTypeRef DestTy, const char *Name)
+ *      LLVMValueRef 	LLVMConstShl (LLVMValueRef LHSConstant, LLVMValueRef RHSConstant)
+ *      LLVMValueRef 	LLVMConstLShr (LLVMValueRef LHSConstant, LLVMValueRef RHSConstant)
+ *      LLVMValueRef 	LLVMBuildShl (LLVMBuilderRef B, LLVMValueRef LHS, LLVMValueRef RHS, const char *Name)
+ *      LLVMValueRef 	LLVMBuildLShr (LLVMBuilderRef B, LLVMValueRef LHS, LLVMValueRef RHS, const char *Name)
+ */
+
 API_EXPORT(LLVMValueRef) 
 LLVMPY_ConstIntValue(LLVMTypeRef IntTy, unsigned long long N,
                           LLVMBool SignExtend) {
@@ -367,6 +393,7 @@ LLVMPY_AttributeListIterNext(LLVMAttributeListIteratorRef GI) {
     using namespace llvm;
     AttributeListIterator *iter = unwrap(GI);
     if (iter->cur != iter->end) {
+        // printf("-%s---------------\n", (&*iter->cur)->getAsString().c_str());
         return LLVMPY_CreateString((&*iter->cur++)->getAsString().c_str());
     } else {
         return NULL;
