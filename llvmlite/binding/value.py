@@ -207,6 +207,15 @@ class ValueRef(ffi.ObjectRef):
     @property
     def name(self):
         return _decode_string(ffi.lib.LLVMPY_GetValueName(self))
+    
+    @property
+    def dbg_name(self):
+        return _decode_string(ffi.lib.LLVMPY_GetDbgValueName(self))
+    
+    @property
+    def dbg_type_name(self):
+        return _decode_string(ffi.lib.LLVMPY_GetDbgValueTypeName(self))
+    
 
     @property
     def dbg_loc(self):
@@ -217,6 +226,11 @@ class ValueRef(ffi.ObjectRef):
     @name.setter
     def name(self, val):
         ffi.lib.LLVMPY_SetValueName(self, _encode_string(val))
+    
+    @property
+    def demangled_name(self):
+        name = self.name
+        return _decode_string(ffi.lib.LLVMPY_ItaniumDemangle(_encode_string(name), len(name)))
 
     @property
     def linkage(self):
@@ -565,6 +579,15 @@ ffi.lib.LLVMPY_GetGlobalParent.restype = ffi.LLVMModuleRef
 
 ffi.lib.LLVMPY_GetValueName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetValueName.restype = c_char_p
+
+ffi.lib.LLVMPY_ItaniumDemangle.argtypes = [c_char_p, c_size_t]
+ffi.lib.LLVMPY_ItaniumDemangle.restype = c_char_p
+
+ffi.lib.LLVMPY_GetDbgValueName.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetDbgValueName.restype = c_char_p
+
+ffi.lib.LLVMPY_GetDbgValueTypeName.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetDbgValueTypeName.restype = c_char_p
 
 ffi.lib.LLVMPY_GetDbgFile.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetDbgFile.restype = c_char_p

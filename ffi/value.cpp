@@ -7,6 +7,7 @@
 // the following is needed for WriteGraph()
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include <llvm/Demangle/Demangle.h>
 
 /* An iterator around a attribute list, including the stop condition */
 struct AttributeListIterator {
@@ -465,9 +466,62 @@ API_EXPORT(const char *)
 LLVMPY_GetValueName(LLVMValueRef Val) { return LLVMGetValueName(Val); }
 
 API_EXPORT(const char *)
-LLVMPY_GetDbgFile(LLVMValueRef Val)
-{
+LLVMPY_ItaniumDemangle(const char *mangled_name, size_t len) { 
+
+  char *Demangled = llvm::itaniumDemangle(mangled_name, nullptr, nullptr, nullptr);
+  if (!Demangled)
+    return LLVMPY_CreateString("");;
+
+  return LLVMPY_CreateString(Demangled);
+}
+
+API_EXPORT(const char *)
+LLVMPY_GetDbgValueName(LLVMValueRef Val) { 
+    // return LLVMGetValueName(Val);
     using namespace llvm;
+
+    if (const auto *GV = dyn_cast<GlobalVariable>(unwrap(Val))) {
+        SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+        GV->getDebugInfo(GVEs);
+        if (GVEs.size())
+            if (const DIGlobalVariable *DGV = GVEs[0]->getVariable()) {
+                StringRef name = DGV->getName();     // DIVariable
+                return LLVMPY_CreateString(name.data());
+            }
+    } else if (const Function *func = unwrap<Function>(Val)) {
+        DISubprogram * diSub = func->getSubprogram();
+        if(diSub) {
+            StringRef name = diSub->getName();     
+            return LLVMPY_CreateString(name.data());
+        }
+    }     
+
+    return LLVMPY_CreateString("");
+}
+
+API_EXPORT(const char *)
+LLVMPY_GetDbgValueTypeName(LLVMValueRef Val) { 
+    // return LLVMGetValueName(Val);
+    using namespace llvm;
+    
+    if (const auto *GV = dyn_cast<GlobalVariable>(unwrap(Val))) {
+        SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+        GV->getDebugInfo(GVEs);
+        if (GVEs.size())
+            if (const DIGlobalVariable *DGV = GVEs[0]->getVariable()) {
+                StringRef name = DGV->getType() -> getName();     // DIType 
+                return LLVMPY_CreateString(name.data());
+            }
+    } // else if ()     
+
+    return LLVMPY_CreateString("");
+}
+
+API_EXPORT(const char *)
+LLVMPY_GetDbgFile(LLVMValueRef Val)
+{   
+    using namespace llvm;
+    /*
     auto *val = unwrap<Value>(Val);
     if (auto *I = dyn_cast<Instruction>(val)) {
         if (auto &D = I->getDebugLoc()) {
@@ -476,11 +530,23 @@ LLVMPY_GetDbgFile(LLVMValueRef Val)
     }
 
     return LLVMPY_CreateString("");
+    */
+    unsigned len = 0;
+    const char * ptr_dir = LLVMGetDebugLocDirectory(Val, &len);
+    std::string s(ptr_dir, len);
+
+    len = 0;
+    const char * ptr = LLVMGetDebugLocFilename(Val, &len);
+    if(len) {
+        s += std::string(ptr, len);
+        return LLVMPY_CreateByteString(s.data(), s.length());
+    } else
+        return LLVMPY_CreateString("");
 }
 
 API_EXPORT(unsigned)
 LLVMPY_GetDbgLine(LLVMValueRef Val)
-{
+{   /*
     using namespace llvm;
     auto *val = unwrap<Value>(Val);
     if (auto *I = dyn_cast<Instruction>(val)) {
@@ -489,14 +555,15 @@ LLVMPY_GetDbgLine(LLVMValueRef Val)
         }
     }
 
-    return 0;
+    return 0; */
+    return LLVMGetDebugLocLine(Val);
 }
 
 
 API_EXPORT(unsigned)
 LLVMPY_GetDbgCol(LLVMValueRef Val)
 {
-    using namespace llvm;
+    /* using namespace llvm;
     auto *val = unwrap<Value>(Val);
     if (auto *I = dyn_cast<Instruction>(val)) {
         if (auto &D = I->getDebugLoc()) {
@@ -504,7 +571,8 @@ LLVMPY_GetDbgCol(LLVMValueRef Val)
         }
     }
 
-    return 0;
+    return 0;   */
+    return LLVMGetDebugLocColumn(Val);
 }
 
 API_EXPORT(void)
@@ -568,7 +636,12 @@ LLVMPY_GetElementType(LLVMTypeRef type) {
     //llvm::PointerType *ty = llvm::dyn_cast<llvm::PointerType>(unwrapped);
     //if (ty != nullptr) {
     if (auto* ty = llvm::dyn_cast<llvm::PointerType>(unwrapped)) {
+        // Ref: LLVMGetElementType
+#if LLVM_VERSION_MAJOR > 13        
+        return llvm::wrap(ty->getNonOpaquePointerElementType());
+#else
         return llvm::wrap(ty->getElementType());
+#endif 
     }
     if (auto* ty = llvm::dyn_cast<llvm::ArrayType>(unwrapped)) {
          return llvm::wrap(ty->getElementType());
