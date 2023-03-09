@@ -413,8 +413,10 @@ class ValueRef(ffi.ObjectRef):
         if not self.is_global:
             raise ValueError('expected global value, got %s'
                              % (self._kind,))
-        return ValueRef(ffi.lib.LLVMPY_GlobalGetInitializer(self),
-                        self._kind, self._parents)
+        v = ffi.lib.LLVMPY_GlobalGetInitializer(self)
+        if not v:
+            return None
+        return ValueRef(v, self._kind, self._parents)
 
     # function 相关的函数
     def append_basic_block(self, name):

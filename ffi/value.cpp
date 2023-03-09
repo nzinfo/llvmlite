@@ -486,13 +486,13 @@ LLVMPY_GetDbgValueName(LLVMValueRef Val) {
         if (GVEs.size())
             if (const DIGlobalVariable *DGV = GVEs[0]->getVariable()) {
                 StringRef name = DGV->getName();     // DIVariable
-                return LLVMPY_CreateString(name.data());
+                return LLVMPY_CreateByteString(name.data(), name.size());
             }
     } else if (const Function *func = unwrap<Function>(Val)) {
         DISubprogram * diSub = func->getSubprogram();
         if(diSub) {
             StringRef name = diSub->getName();     
-            return LLVMPY_CreateString(name.data());
+            return LLVMPY_CreateByteString(name.data(), name.size());
         }
     }     
 
