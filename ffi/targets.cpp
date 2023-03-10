@@ -119,19 +119,52 @@ LLVMPY_OffsetOfElement(LLVMTargetDataRef TD, LLVMTypeRef Ty, int Element) {
 
 API_EXPORT(long long)
 LLVMPY_ABISizeOfElementType(LLVMTargetDataRef TD, LLVMTypeRef Ty) {
+    using namespace llvm;
+    
     llvm::Type *tp = llvm::unwrap(Ty);
+    
     if (!tp->isPointerTy())
         return -1;
+
+#if LLVM_VERSION_MAJOR > 14
+    llvm::Type *ty = nullptr;
+    // Copy from LLVMGetElementType
+    if (auto *PTy = dyn_cast<PointerType>(tp)) {
+        ty = PTy->getNonOpaquePointerElementType();
+    } else if (auto *ATy = dyn_cast<ArrayType>(tp)) {
+        ty = ATy->getElementType();
+    } 
+    else if (auto *VTy = dyn_cast<VectorType>(tp)) {
+        ty = VTy->getElementType();
+    }
+    tp = ty; 
+#else         
     tp = tp->getPointerElementType();
+#endif 
     return (long long)LLVMABISizeOfType(TD, llvm::wrap(tp));
 }
 
 API_EXPORT(long long)
 LLVMPY_ABIAlignmentOfElementType(LLVMTargetDataRef TD, LLVMTypeRef Ty) {
+    using namespace llvm;
     llvm::Type *tp = llvm::unwrap(Ty);
     if (!tp->isPointerTy())
         return -1;
+#if LLVM_VERSION_MAJOR > 14
+    llvm::Type *ty = nullptr;
+    // Copy from LLVMGetElementType
+    if (auto *PTy = dyn_cast<PointerType>(tp)) {
+        ty = PTy->getNonOpaquePointerElementType();
+    } else if (auto *ATy = dyn_cast<ArrayType>(tp)) {
+        ty = ATy->getElementType();
+    } 
+    else if (auto *VTy = dyn_cast<VectorType>(tp)) {
+        ty = VTy->getElementType();
+    }
+    tp = ty; 
+#else         
     tp = tp->getPointerElementType();
+#endif 
     return (long long)LLVMABIAlignmentOfType(TD, llvm::wrap(tp));
 }
 

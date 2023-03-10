@@ -8,6 +8,7 @@
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include <llvm/Demangle/Demangle.h>
+#include "llvm/Support/GraphWriter.h"
 
 /* An iterator around a attribute list, including the stop condition */
 struct AttributeListIterator {

@@ -72,10 +72,13 @@ def find_windows_generator():
         )
 
     generators.extend([
+        # ('Visual Studio 17 2022', ('x64' if is_64bit else 'Win32'), 'v141'),
+        # ('Visual Studio 17 2022', ('x64' if is_64bit else 'Win32'), None),
         # use VS2017 toolkit on VS2019 to match how llvmdev is built
-        ('Visual Studio 16 2019', ('x64' if is_64bit else 'Win32'), 'v141'),
+        # ('Visual Studio 16 2019', ('x64' if is_64bit else 'Win32'), 'v141'),
         # This is the generator configuration for VS2017
-        ('Visual Studio 15 2017' + (' Win64' if is_64bit else ''), None, None)
+        # ('Visual Studio 15 2017' + (' Win64' if is_64bit else ''), None, None)
+        ('Ninja', None, None)
     ])
     for generator in generators:
         build_dir = tempfile.mkdtemp()
@@ -166,7 +169,7 @@ def main_posix(kind, library_ext):
 
         (version, _) = out.split('.', 1)
         version = int(version)
-        if version < 10 or version > 14:
+        if version < 10 or version > 15:
             msg = ("Building llvmlite requires LLVM 10, 11, 12, 13, 14 or 15 got "
                    "{!r}. Be sure to set LLVM_CONFIG to the right executable "
                    "path.\nRead the documentation at "
