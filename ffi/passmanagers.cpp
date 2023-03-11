@@ -48,6 +48,14 @@
 #include <llvm/Transforms/IPO/AlwaysInliner.h>
 #include <llvm/Transforms/Utils.h>
 #include <llvm/Transforms/Utils/UnifyFunctionExitNodes.h>
+
+#if LLVM_VERSION_MAJOR >14
+
+#include <llvm/Transforms/Scalar/SimpleLoopUnswitch.h>
+#include <llvm/Analysis/CGSCCPassManager.h>
+#include <llvm/Transforms/IPO/ArgumentPromotion.h>
+#endif
+
 using namespace llvm;
 
 /*
@@ -265,12 +273,16 @@ LLVMPY_AddAlwaysInlinerPass(LLVMPassManagerRef PM, bool insertLifetime) {
     unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass(insertLifetime));
 }
 
-#if LLVM_VERSION_MAJOR < 15    
+
 API_EXPORT(void)
 LLVMPY_AddArgPromotionPass(LLVMPassManagerRef PM, unsigned int maxElements) {
-    unwrap(PM)->add(llvm::createArgumentPromotionPass(maxElements));
+#if LLVM_VERSION_MAJOR < 15        
+    //unwrap(PM)->add(llvm::createArgumentPromotionPass(maxElements));
+#else    
+    unwrap<ModulePassManager>(PM)->addPass(createModuleToPostOrderCGSCCPassAdaptor(ArgumentPromotionPass(maxElements)));
+#endif
 }
-#endif  
+  
 
 API_EXPORT(void)
 LLVMPY_AddBreakCriticalEdgesPass(LLVMPassManagerRef PM) {
@@ -360,8 +372,19 @@ LLVMPY_AddLoopUnrollAndJamPass(LLVMPassManagerRef PM) {
 API_EXPORT(void)
 LLVMPY_AddLoopUnswitchPass(LLVMPassManagerRef PM, bool optimizeForSize,
                            bool hasBranchDivergence) {
+    // see llvm\lib\Passes\PassBuilderPipelines.cpp
+    // ref: https://reviews.llvm.org/D124376
     unwrap(PM)->add(
         createLoopUnswitchPass(optimizeForSize, hasBranchDivergence));
+}
+#else 
+API_EXPORT(void)
+LLVMPY_AddLoopUnswitchPass(LLVMPassManagerRef PM, bool optimizeForSize,
+                           bool hasBranchDivergence) {
+    // see llvm\lib\Passes\PassBuilderPipelines.cpp
+    // ref: https://reviews.llvm.org/D124376
+    unwrap(PM)->add(
+        llvm::createSimpleLoopUnswitchLegacyPass(optimizeForSize));
 }
 #endif 
 
