@@ -630,6 +630,40 @@ LLVMPY_TypeIsVector(LLVMTypeRef type)
     return llvm::unwrap(type)->isVectorTy();
 }
 
+// begin isFunctionTy, llvm::Type 也可能是 Function Type
+API_EXPORT(bool)
+LLVMPY_TypeIsFunctionType(LLVMTypeRef type)
+{
+    return llvm::unwrap(type)->isFunctionTy();
+}
+
+// isFunctionVarArg
+API_EXPORT(bool)
+LLVMPY_TypeIsFunctionVarArg(LLVMTypeRef type)
+{
+    return llvm::unwrap(type)->isFunctionVarArg();
+}
+
+API_EXPORT(LLVMTypeRef)
+LLVMPY_GetFunctionParamType(LLVMTypeRef type, unsigned n) {
+     return llvm::wrap(llvm::unwrap(type)->getFunctionParamType(n));
+}
+ 
+API_EXPORT(unsigned)
+LLVMPY_GetFunctionNumParams(LLVMTypeRef type) {
+    return llvm::unwrap(type)->getFunctionNumParams();
+}
+
+API_EXPORT(LLVMTypeRef)
+LLVMPY_GetFunctionReturnType(LLVMTypeRef type) {
+    llvm::Type* unwrapped = llvm::unwrap(type);
+    if (auto* ty = llvm::dyn_cast<llvm::FunctionType>(unwrapped)) {
+        return llvm::wrap(ty->getReturnType());
+    }
+    return nullptr;
+}
+
+// end isFunctionTy
 
 API_EXPORT(LLVMTypeRef)
 LLVMPY_GetElementType(LLVMTypeRef type) {

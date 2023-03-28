@@ -82,11 +82,29 @@ class TypeRef(ffi.ObjectRef):
         return ffi.lib.LLVMPY_TypeIsStruct(self)
 
     @property
+    def is_function(self) -> bool:
+        """
+        Returns true is the type is a function type.
+        """
+        return ffi.lib.LLVMPY_TypeIsFunctionType(self)
+
+    @property
+    def is_function_vararg(self) -> bool:
+        """
+        Returns true is the type is a function type.
+        """
+        if not self.is_function:
+            raise ValueError(f"Type {self} not a function.")
+        return ffi.lib.LLVMPY_TypeIsFunctionVarArg(self)
+
+    @property
     def element_type(self):
         """
         Returns the pointed-to type. When the type is not a pointer,
         raises exception.
         """
+        if self.is_function:
+            return TypeRef(ffi.lib.LLVMPY_GetFunctionReturnType(self))
         #if not self.is_pointer:
         #    raise ValueError("Type {} is not a pointer".format(self))
         if not (self.is_pointer or self.is_array or self.is_vector):
@@ -99,6 +117,9 @@ class TypeRef(ffi.ObjectRef):
         Returns the pointed-to type. When the type is not a pointer,
         raises exception.
         """
+        # 与函数复用
+        if self.is_function:
+            return ffi.lib.LLVMPY_GetFunctionNumParams(self)
         if not self.is_struct:
             raise ValueError(f"Type {self} has no elements")
         return ffi.lib.LLVMPY_GetStructNumElements(self)
@@ -108,6 +129,9 @@ class TypeRef(ffi.ObjectRef):
         Returns the nth type in struct. When the type is not a pointer,
         raises exception.
         """
+        # 与函数复用
+        if self.is_function:
+            return TypeRef(ffi.lib.LLVMPY_GetFunctionParamType(self, n))
         if not self.is_struct:
             raise ValueError(f"Type {self} has no elements")
         assert n < self.struct_num_elements, f"Invalid type index: {n}"
@@ -614,6 +638,21 @@ ffi.lib.LLVMPY_TypeIsStruct.restype = c_bool
 
 ffi.lib.LLVMPY_TypeIsVector.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_TypeIsVector.restype = c_bool
+
+ffi.lib.LLVMPY_TypeIsFunctionType.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeIsFunctionType.restype = c_bool
+
+ffi.lib.LLVMPY_TypeIsFunctionVarArg.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeIsFunctionVarArg.restype = c_bool
+
+ffi.lib.LLVMPY_GetFunctionParamType.argtypes = [ffi.LLVMTypeRef, c_uint]
+ffi.lib.LLVMPY_GetFunctionParamType.restype = ffi.LLVMTypeRef
+
+ffi.lib.LLVMPY_GetFunctionNumParams.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_GetFunctionNumParams.restype = c_uint
+
+ffi.lib.LLVMPY_GetFunctionReturnType.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_GetFunctionReturnType.restype = ffi.LLVMTypeRef
 
 ffi.lib.LLVMPY_GetElementType.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_GetElementType.restype = ffi.LLVMTypeRef
