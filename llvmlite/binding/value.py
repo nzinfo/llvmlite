@@ -112,6 +112,12 @@ class TypeRef(ffi.ObjectRef):
         return TypeRef(ffi.lib.LLVMPY_GetElementType(self))
 
     @property
+    def array_num_elements(self):
+        if not self.is_array:
+            raise ValueError(f"Type {self} has no elements")
+        return ffi.lib.LLVMPY_TypeGetArrayNumElements(self)
+
+    @property
     def struct_num_elements(self):
         """
         Returns the pointed-to type. When the type is not a pointer,
@@ -265,6 +271,14 @@ class ValueRef(ffi.ObjectRef):
         if not isinstance(value, Linkage):
             value = Linkage[value]
         ffi.lib.LLVMPY_SetLinkage(self, value)
+
+    @property
+    def alignment(self):
+        return ffi.lib.LLVMPY_GetAlignment(self)
+
+    @linkage.setter
+    def alignment(self, value):
+        ffi.lib.LLVMPY_SetAlignment(self, value)
 
     @property
     def visibility(self):
@@ -633,6 +647,9 @@ ffi.lib.LLVMPY_TypeIsPointer.restype = c_bool
 ffi.lib.LLVMPY_TypeIsArray.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_TypeIsArray.restype = c_bool
 
+ffi.lib.LLVMPY_TypeGetArrayNumElements.argtypes = [ffi.LLVMTypeRef]
+ffi.lib.LLVMPY_TypeGetArrayNumElements.restype = c_uint
+
 ffi.lib.LLVMPY_TypeIsStruct.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_TypeIsStruct.restype = c_bool
 
@@ -676,6 +693,11 @@ ffi.lib.LLVMPY_GetLinkage.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetLinkage.restype = c_int
 
 ffi.lib.LLVMPY_SetLinkage.argtypes = [ffi.LLVMValueRef, c_int]
+
+ffi.lib.LLVMPY_GetAlignment.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetAlignment.restype = c_uint
+
+ffi.lib.LLVMPY_SetAlignment.argtypes = [ffi.LLVMValueRef, c_uint]
 
 ffi.lib.LLVMPY_GetVisibility.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetVisibility.restype = c_int

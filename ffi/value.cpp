@@ -613,10 +613,20 @@ LLVMPY_TypeIsPointer(LLVMTypeRef type) {
 }
 
 API_EXPORT(bool)
-LLVMPY_TypeIsArray(LLVMTypeRef type)
-{
+LLVMPY_TypeIsArray(LLVMTypeRef type) {
     return llvm::unwrap(type)->isArrayTy();
 }
+
+API_EXPORT(unsigned)
+LLVMPY_TypeGetArrayNumElements(LLVMTypeRef type)
+{
+    llvm::Type* unwrapped = llvm::unwrap(type);
+    if (auto* ty = llvm::dyn_cast<llvm::ArrayType>(unwrapped)) {
+        return ty->getNumElements();
+    }
+    return 0;
+}
+
 
 API_EXPORT(bool)
 LLVMPY_TypeIsStruct(LLVMTypeRef type)
@@ -717,6 +727,14 @@ LLVMPY_SetLinkage(LLVMValueRef Val, int Linkage) {
 
 API_EXPORT(int)
 LLVMPY_GetLinkage(LLVMValueRef Val) { return (int)LLVMGetLinkage(Val); }
+
+API_EXPORT(void)
+LLVMPY_SetAlignment(LLVMValueRef Val, unsigned Bytes) {
+    LLVMSetAlignment(Val, Bytes);
+}
+
+API_EXPORT(unsigned)
+LLVMPY_GetAlignment(LLVMValueRef Val) { return LLVMGetAlignment(Val); }
 
 API_EXPORT(void)
 LLVMPY_SetVisibility(LLVMValueRef Val, int Visibility) {
