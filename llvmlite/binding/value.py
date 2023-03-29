@@ -504,6 +504,24 @@ class ValueRef(ffi.ObjectRef):
                 ValueRef(ffi.lib.LLVMPY_PhiGetIncomingBlock(self, idx),
                          'block', self._parents))
 
+
+class NamedMetaRef(ffi.ObjectRef):
+    """A weak reference to a LLVM value.
+    """
+
+    def __init__(self, ptr, kind, parents):
+        self._kind = kind
+        self._parents = parents
+        ffi.ObjectRef.__init__(self, ptr)
+
+    @property
+    def name(self):
+        """
+        Get type name
+        """
+        return ffi.ret_string(ffi.lib.LLVMPY_GetMDNodeName(self))
+
+
 class _ValueIterator(ffi.ObjectRef):
 
     kind = None  # derived classes must specify the Value kind value
@@ -619,6 +637,9 @@ ffi.lib.LLVMPY_GetGlobalParent.restype = ffi.LLVMModuleRef
 
 ffi.lib.LLVMPY_GetValueName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetValueName.restype = c_char_p
+
+ffi.lib.LLVMPY_GetMDNodeName.argtypes = [ffi.LLVMNamedMDNodeRef]
+ffi.lib.LLVMPY_GetMDNodeName.restype = c_char_p
 
 ffi.lib.LLVMPY_ItaniumDemangle.argtypes = [c_char_p, c_size_t]
 ffi.lib.LLVMPY_ItaniumDemangle.restype = c_char_p

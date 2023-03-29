@@ -56,6 +56,19 @@ class TypesIterator {
 
 typedef TypesIterator *LLVMTypesIteratorRef;
 
+/* An iterator around a module's metadata, including the stop condition */
+struct NamedMetaIterator {
+    typedef llvm::Module::named_metadata_iterator iterator;
+    iterator cur;
+    iterator end;
+
+    NamedMetaIterator(iterator cur, iterator end) : cur(cur), end(end) {}
+};
+
+struct OpaqueNamedMetaIterator;
+typedef OpaqueNamedMetaIterator *LLVMNamedMetaIteratorRef;
+
+
 //
 // Local helper functions
 //
@@ -85,6 +98,15 @@ static LLVMTypesIteratorRef wrap(TypesIterator *TyI) {
 static TypesIterator *unwrap(LLVMTypesIteratorRef TyI) {
     return reinterpret_cast<TypesIterator *>(TyI);
 }
+
+static LLVMNamedMetaIteratorRef wrap(NamedMetaIterator *GI) {
+    return reinterpret_cast<LLVMNamedMetaIteratorRef>(GI);
+}
+
+static NamedMetaIterator *unwrap(LLVMNamedMetaIteratorRef GI) {
+    return reinterpret_cast<NamedMetaIterator *>(GI);
+}
+
 
 } // end namespace llvm
 
@@ -249,6 +271,13 @@ LLVMPY_ModuleTypesIter(LLVMModuleRef M) {
     return llvm::wrap(iter);
 }
 
+API_EXPORT(LLVMNamedMetaIteratorRef)
+LLVMPY_ModuleNamedMetaIter(LLVMModuleRef M) {
+    using namespace llvm;
+    Module *mod = unwrap(M);
+    return wrap(new NamedMetaIterator(mod->named_metadata_begin(), mod->named_metadata_end()));
+}
+
 /*
   These functions return NULL if we are at the end
 */
@@ -279,6 +308,17 @@ LLVMPY_TypesIterNext(LLVMTypesIteratorRef TyI) {
     return llvm::wrap(llvm::unwrap(TyI)->next());
 }
 
+API_EXPORT(LLVMNamedMDNodeRef)
+LLVMPY_NamedMetaIterNext(LLVMNamedMetaIteratorRef GI) {
+    using namespace llvm;
+    NamedMetaIterator *iter = unwrap(GI);
+    if (iter->cur != iter->end) {
+        return wrap(&*iter->cur++);
+    } else {
+        return NULL;
+    }
+}
+
 API_EXPORT(void)
 LLVMPY_DisposeGlobalsIter(LLVMGlobalsIteratorRef GI) {
     delete llvm::unwrap(GI);
@@ -291,6 +331,22 @@ LLVMPY_DisposeFunctionsIter(LLVMFunctionsIteratorRef GI) {
 
 API_EXPORT(void)
 LLVMPY_DisposeTypesIter(LLVMTypesIteratorRef TyI) { delete llvm::unwrap(TyI); }
+
+API_EXPORT(void)
+LLVMPY_DisposeNamedMetaIter(LLVMNamedMetaIteratorRef NMI) {
+    delete llvm::unwrap(NMI);
+}
+
+API_EXPORT(const char *)
+LLVMPY_GetMDNodeName(LLVMNamedMDNodeRef Val) { 
+    size_t name_len = 0;
+    const char* s_ptr = LLVMGetNamedMetadataName (Val, &name_len);
+    printf("ssss: %s", s_ptr);
+    // return s_ptr;
+    return LLVMPY_CreateByteString(s_ptr, name_len); 
+    // return LLVMPY_CreateString("cccc");
+}
+
 
 API_EXPORT(LLVMModuleRef)
 LLVMPY_CloneModule(LLVMModuleRef M) { return LLVMCloneModule(M); }

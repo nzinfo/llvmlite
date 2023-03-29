@@ -4,7 +4,7 @@ from ctypes import (c_char_p, byref, POINTER, c_bool, create_string_buffer,
 from llvmlite.binding import ffi
 from llvmlite.binding.linker import link_modules
 from llvmlite.binding.common import _decode_string, _encode_string
-from llvmlite.binding.value import ValueRef, TypeRef
+from llvmlite.binding.value import ValueRef, TypeRef, NamedMetaRef
 from llvmlite.binding.builder import BuilderRef
 from llvmlite.binding.context import get_global_context
 
@@ -231,6 +231,11 @@ class ModuleRef(ffi.ObjectRef):
         it = ffi.lib.LLVMPY_ModuleTypesIter(self)
         return _TypesIterator(it, dict(module=self))
 
+    @property
+    def named_metadata(self):
+        it = ffi.lib.LLVMPY_ModuleNamedMetaIter(self)
+        return _NamedMetaIterator(it, dict(module=self))
+
     def get_builtin_type(self, name):
         """
             返回 LLVM IR 中的系统内置的类型实例，对于 Module 中的结构体类型
@@ -333,7 +338,54 @@ class _TypesIterator(_Iterator):
 
     next = __next__
 
+class _Iterator(ffi.ObjectRef):
 
+    kind = None
+
+    def __init__(self, ptr, parents):
+        ffi.ObjectRef.__init__(self, ptr)
+        self._parents = parents
+        assert self.kind is not None
+
+    def __next__(self):
+        vp = self._next()
+        if vp:
+            return ValueRef(vp, self.kind, self._parents)
+        else:
+            raise StopIteration
+
+    next = __next__
+
+    def __iter__(self):
+        return self
+
+class _NamedMetaIterator(ffi.ObjectRef):
+
+    kind = 'named_meta'
+    
+    def __init__(self, ptr, parents):
+        ffi.ObjectRef.__init__(self, ptr)
+        self._parents = parents
+        assert self.kind is not None
+
+    def __next__(self):
+        vp = self._next()
+        if vp:
+            return NamedMetaRef(vp, self.kind, self._parents)
+        else:
+            raise StopIteration
+
+    next = __next__
+
+    def __iter__(self):
+        return self
+
+    def _dispose(self):
+        self._capi.LLVMPY_DisposeNamedMetaIter(self)
+
+    def _next(self):
+        return ffi.lib.LLVMPY_NamedMetaIterNext(self)
+    
 # =============================================================================
 # Set function FFI
 
@@ -405,6 +457,14 @@ ffi.lib.LLVMPY_FunctionsIterNext.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_TypesIterNext.argtypes = [ffi.LLVMTypesIterator]
 ffi.lib.LLVMPY_TypesIterNext.restype = ffi.LLVMTypeRef
+
+ffi.lib.LLVMPY_ModuleNamedMetaIter.argtypes = [ffi.LLVMModuleRef]
+ffi.lib.LLVMPY_ModuleNamedMetaIter.restype = ffi.LLVMNamedMetaIterator
+
+ffi.lib.LLVMPY_DisposeNamedMetaIter.argtypes = [ffi.LLVMNamedMetaIterator]
+
+ffi.lib.LLVMPY_NamedMetaIterNext.argtypes = [ffi.LLVMNamedMetaIterator]
+ffi.lib.LLVMPY_NamedMetaIterNext.restype = ffi.LLVMNamedMDNodeRef
 
 ffi.lib.LLVMPY_CloneModule.argtypes = [ffi.LLVMModuleRef]
 ffi.lib.LLVMPY_CloneModule.restype = ffi.LLVMModuleRef
