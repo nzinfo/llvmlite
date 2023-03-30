@@ -212,6 +212,10 @@ class ValueRef(ffi.ObjectRef):
     @property
     def is_operand(self):
         return self._kind == 'operand'
+    
+    @property
+    def is_metadata(self):
+        return self._kind == 'metadata'
 
     @property
     def is_constant(self):
@@ -428,13 +432,21 @@ class ValueRef(ffi.ObjectRef):
         Return an iterator over this instruction's operands.
         The iterator will yield a ValueRef for each operand.
         """
-        if not self.is_instruction:
-            raise ValueError('expected instruction value, got %s'
-                             % (self._kind,))
-        it = ffi.lib.LLVMPY_InstructionOperandsIter(self)
-        parents = self._parents.copy()
-        parents.update(instruction=self)
-        return _OperandsIterator(it, parents)
+        if self.is_instruction:
+            #raise ValueError('expected instruction value, got %s'
+            #                 % (self._kind,))
+            it = ffi.lib.LLVMPY_InstructionOperandsIter(self)
+            parents = self._parents.copy()
+            parents.update(instruction=self)
+            return _OperandsIterator(it, parents)
+        
+        # 处理标准的 operands
+        o_list = []
+        for i in range(0, ffi.lib.LLVMPY_GetNumOperands(self)):
+            op = ffi.lib.LLVMPY_GetOperand(self, i)
+            v = ValueRef(op, 'metadata', self._parents)
+            o_list.append(v)
+        return o_list
 
     @property
     def opcode(self):
@@ -519,8 +531,25 @@ class NamedMetaRef(ffi.ObjectRef):
         """
         Get type name
         """
-        return ffi.ret_string(ffi.lib.LLVMPY_GetMDNodeName(self))
+        return _decode_string(ffi.lib.LLVMPY_GetMDNodeName(self))
+    
+    def operands(self, m, name):
+        # print("ptr:", self._ptr, ffi.lib.LLVMPY_GetNumOperands(self._ptr))
+        v_list = []
+        for i in range(0, ffi.lib.LLVMPY_GetMDNodeOperandCount(self)):
+            v_list.append(
+                ValueRef(ffi.lib.LLVMPY_GetMDNodeOperand(self, i),
+                        'metadata', self._parents)
+            )
+        return v_list
+        #return ValueRef(ffi.lib.LLVMPY_GetMDNodeOperands(m, _encode_string(name)),
+        #                'operand', self._parents)
+    
+    #def get_operand(self, i):
+    #    return ValueRef(ffi.lib.LLVMPY_GetMDNodeOperand(self, i), 'operand', self._parents)
 
+    # ffi.lib.LLVMPY_GetMDNodeOperand.argtypes = [ffi.LLVMNamedMDNodeRef, c_uint]
+    # ffi.lib.LLVMPY_GetMDNodeOperand.restype = ffi.LLVMValueRef
 
 class _ValueIterator(ffi.ObjectRef):
 
@@ -640,6 +669,18 @@ ffi.lib.LLVMPY_GetValueName.restype = c_char_p
 
 ffi.lib.LLVMPY_GetMDNodeName.argtypes = [ffi.LLVMNamedMDNodeRef]
 ffi.lib.LLVMPY_GetMDNodeName.restype = c_char_p
+
+ffi.lib.LLVMPY_GetMDNodeOperandCount.argtypes = [ffi.LLVMNamedMDNodeRef]
+ffi.lib.LLVMPY_GetMDNodeOperandCount.restype = c_uint
+
+ffi.lib.LLVMPY_GetMDNodeOperand.argtypes = [ffi.LLVMNamedMDNodeRef, c_uint]
+ffi.lib.LLVMPY_GetMDNodeOperand.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_GetNumOperands.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetNumOperands.restype = c_int
+
+ffi.lib.LLVMPY_GetOperand.argtypes = [ffi.LLVMValueRef, c_int]
+ffi.lib.LLVMPY_GetOperand.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_ItaniumDemangle.argtypes = [c_char_p, c_size_t]
 ffi.lib.LLVMPY_ItaniumDemangle.restype = c_char_p

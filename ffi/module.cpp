@@ -5,6 +5,7 @@
 #include "llvm/IR/TypeFinder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Metadata.h"
 #include <clocale>
 #include <string>
 
@@ -341,12 +342,69 @@ API_EXPORT(const char *)
 LLVMPY_GetMDNodeName(LLVMNamedMDNodeRef Val) { 
     size_t name_len = 0;
     const char* s_ptr = LLVMGetNamedMetadataName (Val, &name_len);
-    printf("ssss: %s", s_ptr);
     // return s_ptr;
     return LLVMPY_CreateByteString(s_ptr, name_len); 
+    //printf("ssss: %s, (%p, %p)", s_ptr, s_ptr, p);
     // return LLVMPY_CreateString("cccc");
+    //return p;
 }
 
+API_EXPORT(unsigned)
+LLVMPY_GetMDNodeOperandCount(LLVMNamedMDNodeRef Val) {
+    using namespace llvm;
+
+    NamedMDNode * MDNode = unwrap<NamedMDNode>(Val);
+    return MDNode->getNumOperands();
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_GetMDNodeOperand(LLVMNamedMDNodeRef Val, unsigned idx) {
+    using namespace llvm;
+
+    // FIXME: 此处的时间复杂度会变为 n^2 当遍历时。    
+    NamedMDNode *N = unwrap<NamedMDNode>(Val);
+    if (!N)
+        return NULL;
+    if (idx>=N->getNumOperands())
+        return NULL;
+
+    // LLVMValueRef dest;
+    LLVMValueRef* dest = new LLVMValueRef[N->getNumOperands()];
+    LLVMGetNamedMetadataOperands(wrap(N->getParent()), LLVMPY_GetMDNodeName(Val), dest);
+    LLVMValueRef rs = dest[idx];
+    delete[] dest;
+    return rs;
+    //dest = wrap(llvm::dyn_cast<llvm::Value>(N->getOperand(idx)));
+    // dest = wrap(cast< ValueAsMetadata >(N->getOperand(idx))->getValue());
+    //dest = (LLVMValueRef)wrap(N->getOperand(idx));
+    //return dest;
+}
+/*
+void LLVMGetNamedMetadataOperands(LLVMModuleRef M, const char* name, LLVMValueRef *Dest)
+{
+  NamedMDNode *N = unwrap(M)->getNamedMetadata(name);
+  if (!N)
+    return;
+  for (unsigned i=0;i<N->getNumOperands();i++)
+    Dest[i] = wrap(N->getOperand(i));
+}
+*/
+
+API_EXPORT(const char*)
+LLVMPY_GetMDString(LLVMValueRef Val) {
+    unsigned str_len = 0;
+    return LLVMGetMDString(Val, &str_len);
+}
+ 
+API_EXPORT(int)
+LLVMPY_GetNumOperands(LLVMValueRef Val) {
+    return LLVMGetNumOperands(Val);
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_GetOperand(LLVMValueRef Val, unsigned idx) {
+    return LLVMGetOperand(Val, idx);
+}
 
 API_EXPORT(LLVMModuleRef)
 LLVMPY_CloneModule(LLVMModuleRef M) { return LLVMCloneModule(M); }
