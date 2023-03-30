@@ -533,8 +533,9 @@ class NamedMetaRef(ffi.ObjectRef):
         """
         return _decode_string(ffi.lib.LLVMPY_GetMDNodeName(self))
     
-    def operands(self, m, name):
-        # print("ptr:", self._ptr, ffi.lib.LLVMPY_GetNumOperands(self._ptr))
+    @property
+    def operands(self):
+        # FIXME: 目前的代码实现非常非常低效
         v_list = []
         for i in range(0, ffi.lib.LLVMPY_GetMDNodeOperandCount(self)):
             v_list.append(
@@ -542,14 +543,7 @@ class NamedMetaRef(ffi.ObjectRef):
                         'metadata', self._parents)
             )
         return v_list
-        #return ValueRef(ffi.lib.LLVMPY_GetMDNodeOperands(m, _encode_string(name)),
-        #                'operand', self._parents)
     
-    #def get_operand(self, i):
-    #    return ValueRef(ffi.lib.LLVMPY_GetMDNodeOperand(self, i), 'operand', self._parents)
-
-    # ffi.lib.LLVMPY_GetMDNodeOperand.argtypes = [ffi.LLVMNamedMDNodeRef, c_uint]
-    # ffi.lib.LLVMPY_GetMDNodeOperand.restype = ffi.LLVMValueRef
 
 class _ValueIterator(ffi.ObjectRef):
 
