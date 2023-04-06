@@ -214,6 +214,14 @@ class ModuleRef(ffi.ObjectRef):
         return _GlobalsIterator(it, dict(module=self))
 
     @property
+    def global_aliases(self):
+        """
+        Return an iterator over this module's global alias.
+        """
+        it = ffi.lib.LLVMPY_ModuleAliasIter(self)
+        return _AliasIterator(it, dict(module=self))
+    
+    @property
     def functions(self):
         """
         Return an iterator over this module's functions.
@@ -307,6 +315,15 @@ class _GlobalsIterator(_Iterator):
     def _next(self):
         return ffi.lib.LLVMPY_GlobalsIterNext(self)
 
+class _AliasIterator(_Iterator):
+
+    kind = 'alias'
+
+    def _dispose(self):
+        self._capi.LLVMPY_DisposeAliasIter(self)
+
+    def _next(self):
+        return ffi.lib.LLVMPY_AliasIterNext(self)
 
 class _FunctionsIterator(_Iterator):
 
@@ -441,6 +458,14 @@ ffi.lib.LLVMPY_DisposeGlobalsIter.argtypes = [ffi.LLVMGlobalsIterator]
 
 ffi.lib.LLVMPY_GlobalsIterNext.argtypes = [ffi.LLVMGlobalsIterator]
 ffi.lib.LLVMPY_GlobalsIterNext.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_ModuleAliasIter.argtypes = [ffi.LLVMModuleRef]
+ffi.lib.LLVMPY_ModuleAliasIter.restype = ffi.LLVMAliasIteratorRef
+
+ffi.lib.LLVMPY_DisposeAliasIter.argtypes = [ffi.LLVMAliasIteratorRef]
+
+ffi.lib.LLVMPY_AliasIterNext.argtypes = [ffi.LLVMAliasIteratorRef]
+ffi.lib.LLVMPY_AliasIterNext.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_ModuleFunctionsIter.argtypes = [ffi.LLVMModuleRef]
 ffi.lib.LLVMPY_ModuleFunctionsIter.restype = ffi.LLVMFunctionsIterator

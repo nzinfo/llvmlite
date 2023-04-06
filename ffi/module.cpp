@@ -21,6 +21,17 @@ struct GlobalsIterator {
 struct OpaqueGlobalsIterator;
 typedef OpaqueGlobalsIterator *LLVMGlobalsIteratorRef;
 
+struct AliasIterator {
+    typedef llvm::Module::alias_iterator iterator;
+    iterator cur;
+    iterator end;
+
+    AliasIterator(iterator cur, iterator end) : cur(cur), end(end) {}
+};
+
+struct OpaqueAliasIterator;
+typedef OpaqueAliasIterator *LLVMAliasIteratorRef;
+
 /* An iterator around a module's functions, including the stop condition */
 struct FunctionsIterator {
     typedef llvm::Module::const_iterator const_iterator;
@@ -82,6 +93,14 @@ static LLVMGlobalsIteratorRef wrap(GlobalsIterator *GI) {
 
 static GlobalsIterator *unwrap(LLVMGlobalsIteratorRef GI) {
     return reinterpret_cast<GlobalsIterator *>(GI);
+}
+
+static LLVMAliasIteratorRef wrap(AliasIterator *GI) {
+    return reinterpret_cast<LLVMAliasIteratorRef>(GI);
+}
+
+static AliasIterator *unwrap(LLVMAliasIteratorRef GI) {
+    return reinterpret_cast<AliasIterator *>(GI);
 }
 
 static LLVMFunctionsIteratorRef wrap(FunctionsIterator *GI) {
@@ -258,6 +277,14 @@ LLVMPY_ModuleGlobalsIter(LLVMModuleRef M) {
     return wrap(new GlobalsIterator(mod->global_begin(), mod->global_end()));
 }
 
+API_EXPORT(LLVMAliasIteratorRef)
+LLVMPY_ModuleAliasIter(LLVMModuleRef M) {
+    using namespace llvm;
+    Module *mod = unwrap(M);
+    return wrap(new AliasIterator(mod->alias_begin(), mod->alias_end()));
+}
+
+
 API_EXPORT(LLVMFunctionsIteratorRef)
 LLVMPY_ModuleFunctionsIter(LLVMModuleRef M) {
     using namespace llvm;
@@ -294,6 +321,18 @@ LLVMPY_GlobalsIterNext(LLVMGlobalsIteratorRef GI) {
 }
 
 API_EXPORT(LLVMValueRef)
+LLVMPY_AliasIterNext(LLVMAliasIteratorRef GI) {
+    using namespace llvm;
+    AliasIterator *iter = unwrap(GI);
+    if (iter->cur != iter->end) {
+        // GlobalAlias  inherited from GlobalValue
+        return wrap(&*iter->cur++);
+    } else {
+        return NULL;
+    }
+}
+
+API_EXPORT(LLVMValueRef)
 LLVMPY_FunctionsIterNext(LLVMFunctionsIteratorRef GI) {
     using namespace llvm;
     FunctionsIterator *iter = unwrap(GI);
@@ -322,6 +361,11 @@ LLVMPY_NamedMetaIterNext(LLVMNamedMetaIteratorRef GI) {
 
 API_EXPORT(void)
 LLVMPY_DisposeGlobalsIter(LLVMGlobalsIteratorRef GI) {
+    delete llvm::unwrap(GI);
+}
+
+API_EXPORT(void)
+LLVMPY_DisposeAliasIter(LLVMAliasIteratorRef GI) {
     delete llvm::unwrap(GI);
 }
 

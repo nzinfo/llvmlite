@@ -26,6 +26,50 @@ class Linkage(enum.IntEnum):
     linker_private = 15
     linker_private_weak = 16
 
+    def __repr__(self) -> str:
+        str_repr = {
+            Linkage.external: "external",
+            Linkage.available_externally: "available_externally",
+            Linkage.linkonce_any: "linkonce",
+            Linkage.linkonce_odr: "linkonce_odr",
+            Linkage.linkonce_odr_autohide: "external",
+            Linkage.weak_any: "weak",
+            Linkage.weak_odr: "weak_odr",
+            Linkage.appending: "appending",
+            Linkage.internal: "internal",
+            Linkage.private: "private",
+            # Linkage.dllimport: "external",
+            # Linkage.dllexport: "external",
+            Linkage.external_weak: "extern_weak",
+            # Linkage.ghost: "external",
+            Linkage.common: "common",
+            # Linkage.linker_private: "external",
+            # Linkage.linker_private_weak: "external",
+        }
+        if self._value_ not in str_repr:
+            raise NotImplementedError
+        return str_repr[self._value_]
+
+
+class ThreadLocal(enum.IntEnum):
+    NotThreadLocal = 0
+    GeneralDynamicTLSModel = 1
+    LocalDynamicTLSModel = 2
+    InitialExecTLSModel = 3
+    LocalExecTLSModel = 4
+
+    def __repr__(self) -> str:
+        str_repr = {
+            ThreadLocal.NotThreadLocal: "",
+            ThreadLocal.GeneralDynamicTLSModel: "thread_local",
+            ThreadLocal.LocalDynamicTLSModel: "thread_local(localdynamic)",
+            ThreadLocal.InitialExecTLSModel: "thread_local(initialexec)",
+            ThreadLocal.LocalExecTLSModel: "thread_local(localexec)",
+        }
+        if self._value_ not in str_repr:
+            raise NotImplementedError
+        return str_repr[self._value_]
+
 
 class Visibility(enum.IntEnum):
     # The LLVMVisibility enum from llvm-c/Core.h
@@ -33,6 +77,132 @@ class Visibility(enum.IntEnum):
     default = 0
     hidden = 1
     protected = 2
+
+    def __repr__(self) -> str:
+        str_repr = {
+            Visibility.default: "default",
+            Visibility.hidden: "hidden",
+            Visibility.protected: "protected",
+        }
+        if self._value_ not in str_repr:
+            raise NotImplementedError
+        return str_repr[self._value_]
+
+
+class CallingConv(enum.IntEnum):
+    C = 0
+    Fast = 8 
+    Cold = 9 
+    GHC = 10
+    HiPE = 11
+    WebKit_JS = 12 
+    AnyReg = 13
+    PreserveMost = 14
+    PreserveAll = 15  
+    Swift = 16
+    CXX_FAST_TLS = 17
+    Tail = 18 
+    
+    CFGuard_Check = 19 
+    SwiftTail = 20 
+    FirstTargetCC = 64 
+    X86_StdCall = 64 
+
+    X86_FastCall = 65 
+    ARM_APCS = 66 
+    ARM_AAPCS = 67 
+    ARM_AAPCS_VFP = 68 
+
+    MSP430_INTR = 69 
+    X86_ThisCall = 70 
+    PTX_Kernel = 71 
+    PTX_Device = 72 
+
+    SPIR_FUNC = 75 
+    SPIR_KERNEL = 76 
+    Intel_OCL_BI = 77 
+    X86_64_SysV = 78 
+
+    Win64 = 79 
+    X86_VectorCall = 80 
+    DUMMY_HHVM = 81 
+    DUMMY_HHVM_C = 82 
+
+    X86_INTR = 83 
+    AVR_INTR = 84 
+    AVR_SIGNAL = 85 
+    AVR_BUILTIN = 86 
+
+    AMDGPU_VS = 87 
+    AMDGPU_GS = 88 
+    AMDGPU_PS = 89 
+    AMDGPU_CS = 90 
+
+    AMDGPU_KERNEL = 91 
+    X86_RegCall = 92 
+    AMDGPU_HS = 93 
+    MSP430_BUILTIN = 94 
+
+    AMDGPU_LS = 95 
+    AMDGPU_ES = 96 
+    AArch64_VectorCall = 97 
+    AArch64_SVE_VectorCall = 98 
+
+    WASM_EmscriptenInvoke = 99 
+    AMDGPU_Gfx = 100 
+    M68k_INTR = 101 
+    AArch64_SME_ABI_Support_Routines_PreserveMost_From_X0 = 102 
+
+    AArch64_SME_ABI_Support_Routines_PreserveMost_From_X2 = 103 
+    MaxID = 1023
+
+    def __repr__(self) -> str:
+        str_repr = {
+            CallingConv.Fast: "fastcc",
+            CallingConv.Cold: "coldcc",
+            CallingConv.X86_FastCall: "x86_fastcallcc",
+            CallingConv.X86_StdCall: "x86_stdcallcc",
+            CallingConv.X86_ThisCall: "x86_thiscallcc",
+            CallingConv.Intel_OCL_BI: "intel_ocl_bicc",
+            CallingConv.ARM_AAPCS: "arm_aapcscc",
+            CallingConv.ARM_AAPCS_VFP: "arm_aapcs_vfpcc",
+            CallingConv.ARM_APCS: "arm_apcscc",
+            CallingConv.MSP430_INTR: "msp430_intrcc",
+            CallingConv.PTX_Device: "tx_device",
+            CallingConv.PTX_Kernel: "ptx_kernel",
+        }
+        if self._value_ not in str_repr:
+            return "cc" + str(self._value_)
+            # raise NotImplementedError
+        return str_repr[self._value_]
+
+
+class AtomicOrdering(enum.IntEnum):
+    NotAtomic = 0,
+    Unordered = 1,
+    Monotonic = 2,      # Equivalent to C++'s relaxed.
+    # Consume = 3,  #  Not specified yet.
+    Acquire = 4,
+    Release = 5,
+    AcquireRelease = 6,
+    SequentiallyConsistent = 7,
+    LAST = SequentiallyConsistent
+
+    def __repr__(self) -> str:
+        str_repr = {
+            AtomicOrdering.NotAtomic: "",
+            AtomicOrdering.Unordered: "unordered",
+            AtomicOrdering.Monotonic: "monotonic",
+            AtomicOrdering.Acquire: "acquire",
+            AtomicOrdering.Release: "release",
+            AtomicOrdering.AcquireRelease: "acq_rel",
+            AtomicOrdering.SequentiallyConsistent: "seq_cst",
+            Visibility.hidden: "hidden",
+            Visibility.protected: "protected",
+        }
+        if self._value_ not in str_repr:
+            raise NotImplementedError
+        return str_repr[self._value_]
 
 
 class StorageClass(enum.IntEnum):
@@ -52,6 +222,17 @@ class TypeRef(ffi.ObjectRef):
         Get type name
         """
         return ffi.ret_string(ffi.lib.LLVMPY_GetTypeName(self))
+
+    @property
+    def is_void_ty(self)->bool:
+        if self.name:
+            return False
+        
+        if self.is_pointer or self.is_array or self.is_function or self.is_struct or self.is_vector:
+            return False
+        
+        return str(self) == "void"
+
 
     @property
     def is_pointer(self):
@@ -161,6 +342,11 @@ class ValueRef(ffi.ObjectRef):
             ffi.lib.LLVMPY_PrintValueToString(self, outstr)
             return str(outstr)
 
+    def as_operand(self, with_ty=False):
+        with ffi.OutputString() as outstr:
+            ffi.lib.LLVMPY_PrintValueToStringAsOperand(self, with_ty, outstr)
+            return str(outstr)
+        
     @property
     def module(self):
         """
@@ -191,8 +377,15 @@ class ValueRef(ffi.ObjectRef):
 
     @property
     def is_global(self):
-        return self._kind == 'global'
-
+        if self._kind == 'global':
+            return True
+        else:
+            return ffi.lib.LLVMPY_IsGlobalVariable(self) != 0
+    
+    @property
+    def is_alias(self):
+        return self._kind == 'alias'
+    
     @property
     def is_function(self):
         return self._kind == 'function'
@@ -243,6 +436,10 @@ class ValueRef(ffi.ObjectRef):
         return _decode_string(ffi.lib.LLVMPY_GetValueName(self))
     
     @property
+    def unique_id(self):
+        return ffi.lib.LLVMPY_GetValueAddressAsID(self)
+
+    @property
     def dbg_name(self):
         return _decode_string(ffi.lib.LLVMPY_GetDbgValueName(self))
     
@@ -269,7 +466,7 @@ class ValueRef(ffi.ObjectRef):
     @property
     def linkage(self):
         return Linkage(ffi.lib.LLVMPY_GetLinkage(self))
-
+    
     @linkage.setter
     def linkage(self, value):
         if not isinstance(value, Linkage):
@@ -277,10 +474,23 @@ class ValueRef(ffi.ObjectRef):
         ffi.lib.LLVMPY_SetLinkage(self, value)
 
     @property
+    def thread_local(self):
+        return ThreadLocal(ffi.lib.LLVMPY_GetThreadLocalMode(self))
+    
+    @property
+    def section(self):
+        assert self.is_global
+        v = ffi.lib.LLVMPY_GetSection(self)
+        if v:
+            return _decode_string(v)
+        else:
+            return None
+
+    @property
     def alignment(self):
         return ffi.lib.LLVMPY_GetAlignment(self)
 
-    @linkage.setter
+    @alignment.setter
     def alignment(self, value):
         ffi.lib.LLVMPY_SetAlignment(self, value)
 
@@ -381,6 +591,16 @@ class ValueRef(ffi.ObjectRef):
         return _BlocksIterator(it, parents)
 
     @property
+    def predecessors(self):
+        if not self.is_block:
+            raise ValueError('expected block value, got %s' % (self._kind,))
+        
+        it = ffi.lib.LLVMPY_BlockPredsIter(self)
+        parents = self._parents.copy()
+        parents.update(function=self)
+        return _PredBlocksIterator(it, parents)
+    
+    @property
     def arguments(self):
         """
         Return an iterator over this function's arguments.
@@ -464,6 +684,19 @@ class ValueRef(ffi.ObjectRef):
             raise ValueError('expected global value, got %s'
                              % (self._kind,))
         v = ffi.lib.LLVMPY_GlobalGetInitializer(self)
+        if not v:
+            return None
+        return ValueRef(v, self._kind, self._parents)
+
+    @property
+    def aliasee(self):
+        """
+        This value's aliasee
+        """
+        if not self.is_global:
+            raise ValueError('expected global value, got %s'
+                             % (self._kind,))
+        v = ffi.lib.LLVMPY_GlobalGetAliasee(self)
         if not v:
             return None
         return ValueRef(v, self._kind, self._parents)
@@ -614,6 +847,15 @@ class _BlocksIterator(_ValueIterator):
     def _next(self):
         return ffi.lib.LLVMPY_BlocksIterNext(self)
 
+class _PredBlocksIterator(_ValueIterator):
+
+    kind = 'block'
+
+    def _dispose(self):
+        self._capi.LLVMPY_DisposePredBlocksIter(self)
+
+    def _next(self):
+        return ffi.lib.LLVMPY_PredBlocksIterNext(self)
 
 class _ArgumentsIterator(_ValueIterator):
 
@@ -655,11 +897,20 @@ ffi.lib.LLVMPY_PrintValueToString.argtypes = [
     POINTER(c_char_p)
 ]
 
+ffi.lib.LLVMPY_PrintValueToStringAsOperand.argtypes = [
+    ffi.LLVMValueRef,
+    c_bool,
+    POINTER(c_char_p)
+]
+
 ffi.lib.LLVMPY_GetGlobalParent.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetGlobalParent.restype = ffi.LLVMModuleRef
 
 ffi.lib.LLVMPY_GetValueName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetValueName.restype = c_char_p
+
+ffi.lib.LLVMPY_GetValueAddressAsID.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetValueAddressAsID.restype = c_size_t
 
 ffi.lib.LLVMPY_GetMDNodeName.argtypes = [ffi.LLVMNamedMDNodeRef]
 ffi.lib.LLVMPY_GetMDNodeName.restype = c_char_p
@@ -760,6 +1011,9 @@ ffi.lib.LLVMPY_GetVisibility.restype = c_int
 
 ffi.lib.LLVMPY_SetVisibility.argtypes = [ffi.LLVMValueRef, c_int]
 
+ffi.lib.LLVMPY_GetThreadLocalMode.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetThreadLocalMode.restype = c_int
+
 ffi.lib.LLVMPY_GetDLLStorageClass.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetDLLStorageClass.restype = c_int
 
@@ -782,6 +1036,8 @@ ffi.lib.LLVMPY_IsConstantExpr.restype = c_int
 ffi.lib.LLVMPY_IsGlobalVariableConstant.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_IsGlobalVariableConstant.restype = c_int
 
+ffi.lib.LLVMPY_IsGlobalVariable.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_IsGlobalVariable.restype = c_int
 
 ffi.lib.LLVMPY_FunctionAttributesIter.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_FunctionAttributesIter.restype = ffi.LLVMAttributeListIterator
@@ -854,6 +1110,9 @@ ffi.lib.LLVMPY_GetOpcodeName.restype = c_void_p
 ffi.lib.LLVMPY_GlobalGetInitializer.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GlobalGetInitializer.restype = ffi.LLVMValueRef
 
+ffi.lib.LLVMPY_GlobalGetAliasee.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GlobalGetAliasee.restype = ffi.LLVMValueRef
+
 ffi.lib.LLVMPY_DeleteBasicBlock.argtypes = [ffi.LLVMValueRef]
 # ffi.lib.LLVMPY_DeleteBasicBlock.restype = ffi.LLVMBlocksIterator
 
@@ -868,3 +1127,14 @@ ffi.lib.LLVMPY_PhiGetIncomingValue.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_PhiGetIncomingBlock.argtypes = [ffi.LLVMValueRef, c_uint]
 ffi.lib.LLVMPY_PhiGetIncomingBlock.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_BlockPredsIter.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_BlockPredsIter.restype = ffi.LLVMPredBlocksIterator
+
+ffi.lib.LLVMPY_DisposePredBlocksIter.argtypes = [ffi.LLVMPredBlocksIterator]
+
+ffi.lib.LLVMPY_PredBlocksIterNext.argtypes = [ffi.LLVMPredBlocksIterator]
+ffi.lib.LLVMPY_PredBlocksIterNext.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_GetSection.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetSection.restype = c_char_p

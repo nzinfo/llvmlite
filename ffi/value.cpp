@@ -49,6 +49,18 @@ struct BlocksIterator {
 struct OpaqueBlocksIterator;
 typedef OpaqueBlocksIterator *LLVMBlocksIteratorRef;
 
+struct PredBlocksIterator {
+    typedef llvm::pred_iterator const_iterator;
+    const_iterator cur;
+    const_iterator end;
+
+    PredBlocksIterator(const_iterator cur, const_iterator end)
+        : cur(cur), end(end) {}
+};
+
+struct OpaquePredBlocksIterator;
+typedef OpaquePredBlocksIterator *LLVMPredBlocksIteratorRef;
+
 /* An iterator around a function's arguments, including the stop condition */
 struct ArgumentsIterator {
     typedef llvm::Function::const_arg_iterator const_iterator;
@@ -113,6 +125,14 @@ static LLVMBlocksIteratorRef wrap(BlocksIterator *GI) {
 
 static BlocksIterator *unwrap(LLVMBlocksIteratorRef GI) {
     return reinterpret_cast<BlocksIterator *>(GI);
+}
+
+static LLVMPredBlocksIteratorRef wrap(PredBlocksIterator *GI) {
+    return reinterpret_cast<LLVMPredBlocksIteratorRef>(GI);
+}
+
+static PredBlocksIterator *unwrap(LLVMPredBlocksIteratorRef GI) {
+    return reinterpret_cast<PredBlocksIterator *>(GI);
 }
 
 static LLVMArgumentsIteratorRef wrap(ArgumentsIterator *GI) {
@@ -194,7 +214,16 @@ API_EXPORT(LLVMBlocksIteratorRef)
 LLVMPY_FunctionBlocksIter(LLVMValueRef F) {
     using namespace llvm;
     Function *func = unwrap<Function>(F);
+    // printf("init block iter %p -> %p\n", func->begin(), func->end());
     return wrap(new BlocksIterator(func->begin(), func->end()));
+}
+
+
+API_EXPORT(LLVMPredBlocksIteratorRef)
+LLVMPY_BlockPredsIter(LLVMValueRef B) {
+    using namespace llvm;
+    BasicBlock *block = unwrap<BasicBlock>(B);
+    return wrap(new PredBlocksIterator(llvm::pred_begin(block), llvm::pred_end(block)));
 }
 
 API_EXPORT(LLVMArgumentsIteratorRef)
@@ -391,7 +420,20 @@ LLVMPY_BlocksIterNext(LLVMBlocksIteratorRef GI) {
     using namespace llvm;
     BlocksIterator *iter = unwrap(GI);
     if (iter->cur != iter->end) {
-        return wrap(static_cast<const Value *>(&*iter->cur++));
+        const Value * v_ptr = static_cast<const Value *>(&*iter->cur++);
+        // printf("bb v_ptr=%p\n", v_ptr);
+        return wrap(v_ptr);
+    } else {
+        return NULL;
+    }
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_PredBlocksIterNext(LLVMPredBlocksIteratorRef GI) {
+    using namespace llvm;
+    PredBlocksIterator *iter = unwrap(GI);
+    if (iter->cur != iter->end) {
+        return wrap(static_cast<const Value *>(*iter->cur++));
     } else {
         return NULL;
     }
@@ -444,6 +486,10 @@ API_EXPORT(void)
 LLVMPY_DisposeBlocksIter(LLVMBlocksIteratorRef GI) { delete llvm::unwrap(GI); }
 
 API_EXPORT(void)
+LLVMPY_DisposePredBlocksIter(LLVMPredBlocksIteratorRef GI) { delete llvm::unwrap(GI); }
+
+
+API_EXPORT(void)
 LLVMPY_DisposeArgumentsIter(LLVMArgumentsIteratorRef GI) {
     delete llvm::unwrap(GI);
 }
@@ -463,8 +509,40 @@ LLVMPY_PrintValueToString(LLVMValueRef Val, const char **outstr) {
     *outstr = LLVMPrintValueToString(Val);
 }
 
+API_EXPORT(void)
+LLVMPY_PrintValueToStringAsOperand(LLVMValueRef Val, bool print_type, const char **outstr) {
+    // printAsOperand(rso, / * PrintType * / false);
+    using namespace llvm;
+
+    std::string buf;
+    raw_string_ostream os(buf);
+ 
+    if (unwrap(Val))
+        unwrap(Val)->printAsOperand(os, print_type);
+    else
+        os << "Printing <null> Value";
+    
+    os.flush();
+    
+    *outstr = strdup(buf.c_str());
+}
+
 API_EXPORT(const char *)
-LLVMPY_GetValueName(LLVMValueRef Val) { return LLVMGetValueName(Val); }
+LLVMPY_GetValueName(LLVMValueRef Val) { 
+    const char* p = LLVMGetValueName(Val);
+    // printf("name: %s, %d\n", p,  llvm::unwrap(Val)->hasName());
+    return p;
+}
+
+API_EXPORT(size_t)
+LLVMPY_GetValueAddressAsID(LLVMValueRef Val) { 
+    /**
+     * On many platforms (an exception is systems with segmented addressing) 
+     * std::size_t can safely store the value of any non-member pointer, 
+     * in which case it is synonymous with std::uintptr_t.
+     */
+    return (size_t)Val; 
+}
 
 API_EXPORT(const char *)
 LLVMPY_ItaniumDemangle(const char *mangled_name, size_t len) { 
@@ -736,6 +814,17 @@ LLVMPY_SetAlignment(LLVMValueRef Val, unsigned Bytes) {
 API_EXPORT(unsigned)
 LLVMPY_GetAlignment(LLVMValueRef Val) { return LLVMGetAlignment(Val); }
 
+// thread_local
+API_EXPORT(int)
+LLVMPY_GetThreadLocalMode(LLVMValueRef Val) { return (int)LLVMGetThreadLocalMode(Val); }
+
+API_EXPORT(const char *)
+LLVMPY_GetSection(LLVMValueRef Val) {
+    return LLVMPY_CreateString(
+        LLVMGetSection(Val)
+    );
+}
+
 API_EXPORT(void)
 LLVMPY_SetVisibility(LLVMValueRef Val, int Visibility) {
     LLVMSetVisibility(Val, (LLVMVisibility)Visibility);
@@ -810,10 +899,28 @@ LLVMPY_IsGlobalVariableConstant(LLVMValueRef V)
     return GV && GV->isConstant();
 }
 
+API_EXPORT(int)
+LLVMPY_IsGlobalVariable(LLVMValueRef V)
+{
+    using namespace llvm;
+    return isa<GlobalValue>(unwrap<Value>(V));
+}
+
 API_EXPORT(LLVMValueRef)
 LLVMPY_GlobalGetInitializer(LLVMValueRef G)
 {
     return LLVMGetInitializer(G);
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_GlobalGetAliasee(LLVMValueRef V)
+{
+    // check GlobalAlias
+    using namespace llvm;
+    auto *GV = dyn_cast<GlobalAlias>(unwrap<Value>(V));
+    if(GV)
+        return wrap(GV->getAliasee());
+    return nullptr;
 }
 
 API_EXPORT(LLVMValueRef)
