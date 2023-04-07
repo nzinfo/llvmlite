@@ -7,6 +7,7 @@
 // the following is needed for WriteGraph()
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Attributes.h"
 #include <llvm/Demangle/Demangle.h>
 #include "llvm/Support/GraphWriter.h"
 
@@ -15,6 +16,9 @@ struct AttributeListIterator {
     typedef llvm::AttributeList::iterator const_iterator;
     const_iterator cur;
     const_iterator end;
+
+    unsigned       has_ret;
+    unsigned       has_fn;
 
     AttributeListIterator(const_iterator cur, const_iterator end)
         : cur(cur), end(end) {}
@@ -168,7 +172,11 @@ LLVMPY_FunctionAttributesIter(LLVMValueRef F) {
     using namespace llvm;
     Function *func = unwrap<Function>(F);
     AttributeList attrs = func->getAttributes();
-    return wrap(new AttributeListIterator(attrs.begin(), attrs.end()));
+    // printf("has ret %d, has fn %d.\n", attrs.hasRetAttrs(), attrs.hasFnAttrs());
+    auto itr = new AttributeListIterator(attrs.begin(), attrs.end());
+    itr->has_fn = attrs.hasFnAttrs();
+    itr->has_ret = attrs.hasRetAttrs();
+    return wrap(itr);
 }
 
 API_EXPORT(LLVMAttributeSetIteratorRef)
@@ -393,20 +401,32 @@ LLVMPY_InstructionOperandsIter(LLVMValueRef I) {
     return wrap(new OperandsIterator(inst->op_begin(), inst->op_end()));
 }
 
-API_EXPORT(const char *)
+API_EXPORT(LLVMAttributeSetIteratorRef)
 LLVMPY_AttributeListIterNext(LLVMAttributeListIteratorRef GI) {
     using namespace llvm;
     AttributeListIterator *iter = unwrap(GI);
     if (iter->cur != iter->end) {
-        return LLVMPY_CreateString((&*iter->cur++)->getAsString().c_str());
+        const AttributeSet * attrs = (&*iter->cur++);
+        return wrap(new AttributeSetIterator(attrs->begin(), attrs->end()));
+        // return LLVMPY_CreateString(attr_set->getAsString().c_str());
     } else {
         return NULL;
     }
 }
 
+API_EXPORT(unsigned)
+LLVMPY_AttributeListAttr(LLVMAttributeListIteratorRef GI, unsigned ty) {
+    AttributeListIterator *iter = llvm::unwrap(GI);
+    if(ty == 0)
+        return iter->has_ret;
+    else 
+        return iter->has_fn;
+}
+
 API_EXPORT(const char *)
 LLVMPY_AttributeSetIterNext(LLVMAttributeSetIteratorRef GI) {
     using namespace llvm;
+    // printf("ret idx %d, fn idx %d\n", AttributeList::AttrIndex::ReturnIndex, AttributeList::AttrIndex::FunctionIndex);
     AttributeSetIterator *iter = unwrap(GI);
     if (iter->cur != iter->end) {
         return LLVMPY_CreateString((&*iter->cur++)->getAsString().c_str());
@@ -865,6 +885,43 @@ LLVMPY_SetFunctionStringAttr(LLVMValueRef Fn, const char *k, size_t klen) // , c
     // LLVMContextRef ctx = LLVMGetModuleContext(LLVMGetGlobalParent(Fn));
     // LLVMAttributeRef attrRef =	LLVMCreateStringAttribute ( ctx, k, klen, v, vlen)
 }
+
+/*
+API_EXPORT(LLVMValueRef)
+LLVMPY_GetPersonalityFn(LLVMValueRef Fn)  
+{
+    using namespace llvm;
+
+    Function *F = unwrap<Function>(Fn);
+    if (F->hasPersonalityFn()) {
+        llvm::Constant *pers_fn = F->getPersonalityFn();
+        return wrap(pers_fn);
+    }
+    return nullptr;
+}
+*/
+
+API_EXPORT(int)
+LLVMPY_GetCallingConv(LLVMValueRef Fn) { 
+    using namespace llvm;
+
+    Function *F = unwrap<Function>(Fn); // FIXME: check pointer ?
+    return (int)F->getCallingConv(); 
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_GetPersonalityFn(LLVMValueRef Fn)  
+{
+    using namespace llvm;
+
+    Function *F = unwrap<Function>(Fn);
+    if (F->hasPersonalityFn()) {
+        llvm::Constant *pers_fn = F->getPersonalityFn();
+        return wrap(pers_fn);
+    }
+    return nullptr;
+}
+
 /*
 API_EXPORT(bool)
 LLVMPY_HasFunctionStringAttr(LLVMValueRef Fn, const char *k, size_t klen) {

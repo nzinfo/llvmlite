@@ -233,6 +233,15 @@ class TypeRef(ffi.ObjectRef):
         
         return str(self) == "void"
 
+    @property
+    def is_integer_ty(self)->bool:
+        if self.name:
+            return False
+        
+        if self.is_pointer or self.is_array or self.is_function or self.is_struct or self.is_vector:
+            return False
+        s_expr = str(self)
+        return s_expr[0] == 'i'
 
     @property
     def is_pointer(self):
@@ -291,7 +300,7 @@ class TypeRef(ffi.ObjectRef):
         if not (self.is_pointer or self.is_array or self.is_vector):
             raise ValueError(f"Type {self} has no elements")
         return TypeRef(ffi.lib.LLVMPY_GetElementType(self))
-
+    
     @property
     def array_num_elements(self):
         if not self.is_array:
@@ -485,7 +494,11 @@ class ValueRef(ffi.ObjectRef):
             return _decode_string(v)
         else:
             return None
-
+    
+    @property
+    def callingconv(self):
+        return CallingConv(ffi.lib.LLVMPY_GetCallingConv(self))
+    
     @property
     def alignment(self):
         return ffi.lib.LLVMPY_GetAlignment(self)
@@ -622,6 +635,17 @@ class ValueRef(ffi.ObjectRef):
             raise ValueError('expected function value, got %s' % (self._kind,))
         return TypeRef(ffi.lib.LLVMPY_FunctionReturnType(self))
     
+    @property
+    def personality_fn(self):
+        if not self.is_function:
+            raise ValueError('expected function value, got %s' % (self._kind,))
+        fn = ffi.lib.LLVMPY_GetPersonalityFn(self)
+        if fn:
+            return ValueRef(fn, 'function', self._parents)
+        else:
+            return None
+
+
     """    
     @property
     def function_set_attr(self, attr):
@@ -825,7 +849,18 @@ class _AttributeListIterator(_AttributeIterator):
         self._capi.LLVMPY_DisposeAttributeListIter(self)
 
     def _next(self):
-        return ffi.ret_bytes(ffi.lib.LLVMPY_AttributeListIterNext(self))
+        itr = ffi.lib.LLVMPY_AttributeListIterNext(self)
+        if itr:
+            return _AttributeSetIterator(itr)
+        return None
+    
+    @property
+    def has_fn_attr(self):
+        return ffi.lib.LLVMPY_AttributeListAttr(self, 1)
+
+    @property
+    def has_ret_attr(self):
+        return ffi.lib.LLVMPY_AttributeListAttr(self, 0)
 
 
 class _AttributeSetIterator(_AttributeIterator):
@@ -978,6 +1013,9 @@ ffi.lib.LLVMPY_GetFunctionNumParams.restype = c_uint
 ffi.lib.LLVMPY_GetFunctionReturnType.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_GetFunctionReturnType.restype = ffi.LLVMTypeRef
 
+ffi.lib.LLVMPY_GetPersonalityFn.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetPersonalityFn.restype = ffi.LLVMValueRef
+
 ffi.lib.LLVMPY_GetElementType.argtypes = [ffi.LLVMTypeRef]
 ffi.lib.LLVMPY_GetElementType.restype = ffi.LLVMTypeRef
 
@@ -1013,6 +1051,9 @@ ffi.lib.LLVMPY_SetVisibility.argtypes = [ffi.LLVMValueRef, c_int]
 
 ffi.lib.LLVMPY_GetThreadLocalMode.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetThreadLocalMode.restype = c_int
+
+ffi.lib.LLVMPY_GetCallingConv.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetCallingConv.restype = c_int
 
 ffi.lib.LLVMPY_GetDLLStorageClass.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetDLLStorageClass.restype = c_int
@@ -1087,7 +1128,10 @@ ffi.lib.LLVMPY_DisposeInstructionsIter.argtypes = [ffi.LLVMInstructionsIterator]
 ffi.lib.LLVMPY_DisposeOperandsIter.argtypes = [ffi.LLVMOperandsIterator]
 
 ffi.lib.LLVMPY_AttributeListIterNext.argtypes = [ffi.LLVMAttributeListIterator]
-ffi.lib.LLVMPY_AttributeListIterNext.restype = c_void_p
+ffi.lib.LLVMPY_AttributeListIterNext.restype = ffi.LLVMAttributeSetIterator
+
+ffi.lib.LLVMPY_AttributeListAttr.argtypes = [ffi.LLVMAttributeListIterator, c_uint]
+ffi.lib.LLVMPY_AttributeListAttr.restype = c_uint
 
 ffi.lib.LLVMPY_AttributeSetIterNext.argtypes = [ffi.LLVMAttributeSetIterator]
 ffi.lib.LLVMPY_AttributeSetIterNext.restype = c_void_p
