@@ -8,6 +8,7 @@
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Attributes.h"
+#include <llvm/IR/Operator.h>
 #include <llvm/Demangle/Demangle.h>
 #include "llvm/Support/GraphWriter.h"
 
@@ -23,6 +24,16 @@ struct AttributeListIterator {
     AttributeListIterator(const_iterator cur, const_iterator end)
         : cur(cur), end(end) {}
 };
+/*
+struct AttributeListIndexedIterator {
+    typedef llvm::AttributeList::index_iterator const_iterator;
+    const_iterator cur;
+    const_iterator end;
+
+    AttributeListIndexedIterator(const_iterator cur, const_iterator end)
+        : cur(cur), end(end) {}
+};
+*/
 
 struct OpaqueAttributeListIterator;
 typedef OpaqueAttributeListIterator *LLVMAttributeListIteratorRef;
@@ -197,9 +208,12 @@ LLVMPY_ArgumentAttributesIter(LLVMValueRef A) {
 API_EXPORT(LLVMAttributeListIteratorRef)
 LLVMPY_CallInstAttributesIter(LLVMValueRef C) {
     using namespace llvm;
-    CallInst *inst = unwrap<CallInst>(C);
+    CallBase  *inst = unwrap<CallBase >(C);
     AttributeList attrs = inst->getAttributes();
-    return wrap(new AttributeListIterator(attrs.begin(), attrs.end()));
+    auto iter = new AttributeListIterator(attrs.begin(), attrs.end());
+    iter -> has_ret = attrs.hasRetAttrs();
+    iter -> has_fn = attrs.hasRetAttrs(); //hasAttributes(AttributeList::FunctionIndex);
+    return wrap(iter);
 }
 
 API_EXPORT(LLVMAttributeListIteratorRef)
@@ -545,6 +559,58 @@ LLVMPY_PrintValueToStringAsOperand(LLVMValueRef Val, bool print_type, const char
     os.flush();
     
     *outstr = strdup(buf.c_str());
+}
+
+API_EXPORT(const char *)
+LLVMPY_GetInstrOptimizationInfo(LLVMValueRef Val) { 
+    using namespace llvm;
+
+    std::string buf;
+    raw_string_ostream os(buf);
+
+    if (const FPMathOperator *fpo = dyn_cast<const FPMathOperator>(unwrap(Val))) {
+
+        if (fpo->isFast()) {
+            os << "fast ";
+        }
+        else {
+            if (fpo->hasNoNaNs())
+                os << "nnan ";
+
+            if (fpo->hasNoInfs())
+                os << "ninf ";
+
+            if (fpo->hasNoSignedZeros())
+                os << "nsz ";
+
+            if (fpo->hasAllowReciprocal())
+                os << "arcp ";
+                
+            if (fpo->hasAllowContract())
+                os << "acon ";
+
+            if (fpo->hasApproxFunc())
+                os << "apfn ";
+        }
+    }
+
+    if (const OverflowingBinaryOperator *obo = dyn_cast<OverflowingBinaryOperator>(unwrap(Val))) {
+
+        if (obo->hasNoUnsignedWrap())
+            os << "nuw ";
+            // gen.writeFact(pred::instruction::flag, iref, "nuw");
+
+        if (obo->hasNoSignedWrap())
+            os << "nsw ";
+    }
+    else if (const PossiblyExactOperator *div = dyn_cast<PossiblyExactOperator>(unwrap(Val))) {
+
+        if (div->isExact())
+            os << "exact ";
+    }
+
+    os.flush();
+    return LLVMPY_CreateByteString(buf.data(), buf.size());
 }
 
 API_EXPORT(const char *)
@@ -906,7 +972,11 @@ LLVMPY_GetCallingConv(LLVMValueRef Fn) {
     using namespace llvm;
 
     Function *F = unwrap<Function>(Fn); // FIXME: check pointer ?
-    return (int)F->getCallingConv(); 
+    if(F)
+        return (int)F->getCallingConv(); 
+    CallInst *inst = unwrap<CallInst>(Fn);
+    if(inst)
+        return (int)inst->getCallingConv(); 
 }
 
 API_EXPORT(LLVMValueRef)
@@ -987,6 +1057,16 @@ LLVMPY_ConstantExprAsInst(LLVMValueRef CE)
     return wrap(cast<ConstantExpr>(unwrap<Value>(CE))->getAsInstruction());
 }
 
+API_EXPORT(LLVMValueRef)
+LLVMPY_GlobalGetInlineAsm(LLVMValueRef V)
+{
+    // check GlobalAlias
+    using namespace llvm;
+    auto *GV = dyn_cast<InlineAsm>(unwrap<Value>(V));
+    if(GV)
+        return V;
+    return nullptr;
+}
 
 API_EXPORT(unsigned)
 LLVMPY_PhiCountIncoming(LLVMValueRef P)
@@ -1029,4 +1109,127 @@ LLVMPY_GetOpcodeName(LLVMValueRef Val) {
     return LLVMPY_CreateString("");
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  遍历 Inst 所需要的 额外的接口信息
+//      
+//      - LLVMPY_ReturnInst_GetReturnValue
+//      - LLVMPY_BranchInst_GetCondition
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchInst
+API_EXPORT(LLVMValueRef)
+LLVMPY_BranchInst_GetCondition(LLVMValueRef V)
+{
+    using namespace llvm;
+    BranchInst *inst = unwrap<BranchInst>(V);
+    if(inst->isConditional())
+        return wrap(inst->getCondition());
+    return nullptr;
+}
+
+// SwitchInst, 
+// switch <intty> <value>, label <defaultdest> [ <intty> <val>, label <dest> ... ]
+API_EXPORT(unsigned)
+LLVMPY_SwitchInst_GetNumCases(LLVMValueRef V)
+{
+    using namespace llvm;
+    SwitchInst *inst = unwrap<SwitchInst>(V);
+    return inst->getNumCases();
+}
+
+// IndirectBrInst
+// indirectbr <somety>* <address>, [ label <dest1>, label <dest2>, ... ]
+
+// InvokeInst
+
+// CallInst
+API_EXPORT(unsigned)
+LLVMPY_CallBase_GetNumArgOperands(LLVMValueRef V)
+{
+    using namespace llvm;
+    const CallBase  *inst = unwrap<CallBase >(V);
+#if LLVM_VERSION_MAJOR <13  // 先写之前版本的调用方式有助于代码工具给提示
+    return inst->getNumArgOperands();
+#else
+    return inst->arg_size();
+#endif
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_CallBase_GetArgOperand(LLVMValueRef V, unsigned idx)
+{
+    using namespace llvm;
+    const CallBase *inst = unwrap<CallBase>(V);
+    return wrap(inst->getArgOperand(idx));
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_CallBase_GetCalledFunction(LLVMValueRef V)
+{
+    using namespace llvm;
+    const CallBase *inst = unwrap<CallBase>(V);
+
+    if (auto *F = dyn_cast_or_null<Function>(inst->getCalledOperand()))
+        if (F->getValueType() == inst->getFunctionType())
+            return wrap(F);
+    return nullptr;
+}
+
+API_EXPORT(unsigned)
+LLVMPY_CallInst_IsTailCall(LLVMValueRef V)
+{
+    using namespace llvm;
+    const CallInst *inst = unwrap<CallInst>(V);
+    return inst->isTailCall();
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_CallInst_GetCalledValue(LLVMValueRef V)
+{
+    using namespace llvm;
+    const CallInst *inst = unwrap<CallInst>(V);
+#if LLVM_VERSION_MAJOR <13
+    return wrap(inst->getCalledValue());
+#else
+    return wrap(inst->getCalledOperand());
+#endif
+}
+
+API_EXPORT(LLVMValueRef)
+LLVMPY_CallInst_GetCalledFunction(LLVMValueRef V)
+{
+    using namespace llvm;
+    const CallInst *inst = unwrap<CallInst>(V);
+    if(inst ->isInlineAsm())
+        return nullptr;
+    return wrap(inst->getCalledFunction());
+}
+
+
+/*
+    根据 Factgen 的使用情况，以下为 需要额外处理 的 opcode
+    ret    getReturnValue
+    br     getCondition / isConditional
+    switch cases, getCaseValue / getCaseSuccessor , getNumCases
+    invoke getCalledFunction  / getCalledValue / getNormalDest / getUnwindDest
+    resume getValue
+    alloc  getAllocatedType   , isArrayAllocation / getArraySize, getAlignment
+    load   getPointerOperand / isVolatile / getAlignment / isAtomic
+    vaarg  getPointerOperand
+    extractValue    getNumIndices
+    store  getValueOperand / getPointerOperand / isVolatile / getAlignment / isAtomic
+    AtomicCmpXchg  getPointerOperand / getCompareOperand / getNewValOperand / isVolatile / getSuccessOrdering / getFailureOrdering
+                   getSyncScopeID
+    AtomicRMW    getPointerOperand / getValOperand / isVolatile / getOperation / getAlignment
+    GEP     getPointerOperand / getNumIndices / getOperand / isInBounds
+    phi     getNumIncomingValues / getIncomingValue / getIncomingBlock
+    call   getCalledFunction  / getCalledValue / getNumArgOperands / getArgOperand
+    insertValue idx_begin  / idx_end
+    landingpad   isCleanup / getNumClauses / getClause / getPersonalityFn
+    call    isInlineAsm / getCalledFunction / getCalledValue / getNumArgOperands / getArgOperand
+            isTailCall / getCallingConv / getAttributes
+    DbgDeclare TODO: debug info
+    DbgValue TODO: debug info
+    ExtractElement getVectorOperand / getIndexOperand
+ */
 } // end extern "C"

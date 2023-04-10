@@ -397,10 +397,14 @@ class ValueRef(ffi.ObjectRef):
     
     @property
     def is_function(self):
+        if self._kind == 'operand':
+            raise NotImplementedError       # 对于 operand 类型的变量，需要额外的判断
         return self._kind == 'function'
 
     @property
     def is_block(self):
+        if self._kind == 'operand':
+            raise NotImplementedError
         return self._kind == 'block'
 
     @property
@@ -409,6 +413,8 @@ class ValueRef(ffi.ObjectRef):
 
     @property
     def is_instruction(self):
+        if self._kind == 'operand':
+            raise NotImplementedError
         return self._kind == 'instruction'
 
     @property
@@ -443,6 +449,13 @@ class ValueRef(ffi.ObjectRef):
     @property
     def name(self):
         return _decode_string(ffi.lib.LLVMPY_GetValueName(self))
+    
+    @property
+    def optimization_info(self):
+        if not self.is_instruction:
+            raise ValueError('expected instruction value, got %s'
+                             % (self._kind,))
+        return _decode_string(ffi.lib.LLVMPY_GetInstrOptimizationInfo(self))
     
     @property
     def unique_id(self):
@@ -645,7 +658,6 @@ class ValueRef(ffi.ObjectRef):
         else:
             return None
 
-
     """    
     @property
     def function_set_attr(self, attr):
@@ -693,6 +705,10 @@ class ValueRef(ffi.ObjectRef):
         return o_list
 
     @property
+    def operands_num(self):
+        return ffi.lib.LLVMPY_GetNumOperands(self)
+
+    @property
     def opcode(self):
         if not self.is_instruction:
             raise ValueError('expected instruction value, got %s'
@@ -724,6 +740,20 @@ class ValueRef(ffi.ObjectRef):
         if not v:
             return None
         return ValueRef(v, self._kind, self._parents)
+    
+    @property
+    def is_inline_asm(self):
+        """
+        This value's aliasee
+        """
+        if not self.is_operand:
+            raise ValueError('expected operand value, got %s'
+                             % (self._kind,))
+        v = ffi.lib.LLVMPY_GlobalGetInlineAsm(self)
+        if not v:
+            return False
+        return True #ValueRef(v, self._kind, self._parents)
+
 
     # function 相关的函数
     def append_basic_block(self, name):
@@ -772,6 +802,7 @@ class ValueRef(ffi.ObjectRef):
                          'operand', self._parents),
                 ValueRef(ffi.lib.LLVMPY_PhiGetIncomingBlock(self, idx),
                          'block', self._parents))
+
 
 
 class NamedMetaRef(ffi.ObjectRef):
@@ -943,6 +974,9 @@ ffi.lib.LLVMPY_GetGlobalParent.restype = ffi.LLVMModuleRef
 
 ffi.lib.LLVMPY_GetValueName.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetValueName.restype = c_char_p
+
+ffi.lib.LLVMPY_GetInstrOptimizationInfo.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GetInstrOptimizationInfo.restype = c_char_p
 
 ffi.lib.LLVMPY_GetValueAddressAsID.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GetValueAddressAsID.restype = c_size_t
@@ -1156,6 +1190,9 @@ ffi.lib.LLVMPY_GlobalGetInitializer.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_GlobalGetAliasee.argtypes = [ffi.LLVMValueRef]
 ffi.lib.LLVMPY_GlobalGetAliasee.restype = ffi.LLVMValueRef
+
+ffi.lib.LLVMPY_GlobalGetInlineAsm.argtypes = [ffi.LLVMValueRef]
+ffi.lib.LLVMPY_GlobalGetInlineAsm.restype = ffi.LLVMValueRef
 
 ffi.lib.LLVMPY_DeleteBasicBlock.argtypes = [ffi.LLVMValueRef]
 # ffi.lib.LLVMPY_DeleteBasicBlock.restype = ffi.LLVMBlocksIterator
